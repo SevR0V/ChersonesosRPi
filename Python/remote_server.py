@@ -25,7 +25,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.camera_angle = 50
         self.heading = 0
         self.angular_velocity = 0
-        self.cur_depth = 0
+        self.depth = 0
         self.ref_depth = 0
         self.rollStab = 0
         self.pitchStab = 0
@@ -35,8 +35,11 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.pitchPID = PID(10, 0, 0, 0)
         self.depthPID = PID(10, 0, 0, 0)
         self.yawPID = PID(10, 0, 0, 0)
-        self.cur_yaw = 0
+        self.yaw = 0
+        self.roll = 0
+        self.pitch = 0
         self.depth_filter = ExpMovingAverageFilter(0.8)
+        
 #         self.depth_sensor = MS5837
         
         try:
@@ -80,8 +83,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         mdf2 = 1 if fx>0 else 0.6
         mdf3 = 1.2 if fx>0 else 0.6
 
-        if np.abs(angular_velocity) >= 1 or not self.yawStab : self.yawPID.set_setpoint(self.cur_yaw)
-        yaw_pid = self.yawPID.update(self.cur_yaw, self.navx.elapsed_time) if (np.abs(angular_velocity) < 1) & self.yawStab else 0
+        if np.abs(angular_velocity) >= 1 or not self.yawStab : self.yawPID.set_setpoint(self.yaw)
+        yaw_pid = self.yawPID.update(self.yaw, self.navx.elapsed_time) if (np.abs(angular_velocity) < 1) & self.yawStab else 0
         #print(yaw_pid)
 
         m1 = fx * mdf1/2 + np.sqrt(3) * fy / 2 + 0.32 * (angular_velocity + yaw_pid)
@@ -109,7 +112,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         #ki_pitch = -0.1
         
         if not ((np.abs(thrust)<1) and self.depthStab):
-                self.depthPID.set_setpoint(self.cur_depth)
+                self.depthPID.set_setpoint(self.depth)
         
         #if np.abs(roll_error) < 5:
         #    self.rollPI += roll_error * ki_roll * self.navx.elapsed_time
@@ -119,7 +122,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         #pitch_PID = pitch_error * kp_pitch + self.pitchPI
         roll_PID = self.rollPID.update(roll, self.navx.elapsed_time) if self.rollStab else 0
         pitch_PID = self.pitchPID.update(pitch, self.navx.elapsed_time) if self.pitchStab else 0
-        depth_PID = -self.depthPID.update(self.cur_depth, self.navx.elapsed_time) if self.depthStab else 0
+        depth_PID = -self.depthPID.update(self.depth, self.navx.elapsed_time) if self.depthStab else 0
         
 
         roll_PID = constrain(roll_PID, -100, 100)
@@ -181,8 +184,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if(received[13]):
             self.rollPID.set_setpoint(0)
             self.pitchPID.set_setpoint(0)
-            self.yawPID.set_setpoint(self.cur_yaw)
-            self.depthPID.set_setpoint(self.cur_depth)
+            self.yawPID.set_setpoint(self.yaw)
+            self.depthPID.set_setpoint(self.depth)
             self.rollStab = 0
             self.pitchStab = 0
             self.yawStab = 0
@@ -233,37 +236,53 @@ class RemoteUdpDataServer(asyncio.Protocol):
         else:
             depth = 0
         ####print("Depth:", depth)
-        self.cur_depth = self.depth_filter.update(depth)
-        self.cur_yaw = yaw
+        self.depth = self.depth_filter.update(depth)
+        self.yaw = yaw
         #print(f"Signal: {depth:.2f} Filtered: {self.cur_depth:.2f}")
         if self.remote_addres:
             #telemetry_data = struct.pack('=ffff', roll, pitch, yaw, heading)
-            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, heading, self.cur_depth, self.rollPID.setpoint, self.pitchPID.setpoint)
+            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, heading, self.depth, self.rollPID.setpoint, self.pitchPID.setpoint)
             self.transport.sendto(telemetry_data, self.remote_addres)
 
 
     def dataCalculationTransfer(self):
-       print(self.reference_thrust_direction)
-       """  self.bridge.set_mot_servo(0, 12.0)
-        self.bridge.set_mot_servo(4, 100.0)
-        self.bridge.set_mot_servo(7, -52.0)
-    
-        try:
-            # Transfer data over SPI
-            self.bridge.transfer()
-            # print(", ".join(hex(b) for b in bridge.tx_buffer))
-            print("q1 = ", self.bridge.get_man_q(0))
-            print("q2 = ", self.bridge.get_man_q(1))
-            print("q3 = ", self.bridge.get_man_q(2))
-            # Delay
-            time.sleep(1)
-    
-        except:
-            self.bridge.close() """        
-       if self.remote_addres:
-            #telemetry_data = struct.pack('=ffff', roll, pitch, yaw, heading)
-            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, heading, self.cur_depth, self.rollPID.setpoint, self.pitchPID.setpoint)
-            self.transport.sendto(telemetry_data, self.remote_addres)
+        
+
+        """  self.bridge.set_mot_servo(0, 12.0)
+            self.bridge.set_mot_servo(4, 100.0)
+            self.bridge.set_mot_servo(7, -52.0)
+        
+            try:
+                # Transfer data over SPI
+                self.bridge.transfer()
+                # print(", ".join(hex(b) for b in bridge.tx_buffer))
+                print("q1 = ", self.bridge.get_man_q(0))
+                print("q2 = ", self.bridge.get_man_q(1))
+                print("q3 = ", self.bridge.get_man_q(2))
+                # Delay
+                time.sleep(1)
+        
+            except:
+                self.bridge.close() """   
+
+        horizontal_motors_thrust = self.calculate_horizontal_thrusters_force(self.reference_thrust_direction, self.reference_rotation_velocity)
+        vertical_motors_thrust = self.calculate_vertiacal_thrusters_force(self.roll, self.pitch, self.reference_vertical_thrust, self.reference_thrust_direction)
+
+        h1, h2, h3 = horizontal_motors_thrust 
+        v1, v2, v3 = vertical_motors_thrust     
+
+        if self.ds_init:
+            if self.depth_sensor.read(ms5837.OSR_256):
+                depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
+        else:
+            depth = 0        
+
+        self.depth = self.depth_filter.update(depth)
+       
+        if self.remote_addres:
+                #telemetry_data = struct.pack('=ffff', roll, pitch, yaw, heading)
+                telemetry_data = struct.pack('=fffffff', self.roll, self.pitch, self.yaw, 0, self.depth, self.rollPID.setpoint, self.pitchPID.setpoint)
+                self.transport.sendto(telemetry_data, self.remote_addres)
         
 
             
