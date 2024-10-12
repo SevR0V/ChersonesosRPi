@@ -6,7 +6,6 @@ import time
 import camera
 import manipulator
 import ms5837
-from controlsystem import ControlSystem, ControlAxes
 from utils import constrain, normalized, PID, ExpMovingAverageFilter
 
 to_rad = math.pi / 180
@@ -39,9 +38,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.roll = 0
         self.pitch = 0
         self.depth_filter = ExpMovingAverageFilter(0.8)
-        self.controlSystem = ControlSystem()
-        a = (0,0,0,0,0,0)
-        self.controlSystem.setAxesInputs(a)
 
 #         self.depth_sensor = MS5837
         
