@@ -199,7 +199,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.depthPID.set_constants(received[23], received[24], received[25])
         manipulator.grip(manipulator_grip)
         manipulator.rotate(manipulator_rotate)
-        self.rotate_camera(camera_rotate * 1000, self.self.timer.getInterval())
+        self.rotate_camera(camera_rotate * 1000, self.timer.getInterval())
         # X
         if light_state:
             self.light.on()
