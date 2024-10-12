@@ -260,6 +260,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
     
         except:
             self.bridge.close() """        
+       if self.remote_addres:
+            #telemetry_data = struct.pack('=ffff', roll, pitch, yaw, heading)
+            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, heading, self.cur_depth, self.rollPID.setpoint, self.pitchPID.setpoint)
+            self.transport.sendto(telemetry_data, self.remote_addres)
         
 
             
