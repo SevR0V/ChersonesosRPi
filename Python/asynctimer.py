@@ -31,6 +31,8 @@ class AsyncTimer:
             await asyncio.sleep(self.interval)
             for callback in self.callbacks:
                 callback()
+    def getInterval(self):
+        return self.interval
 
     def start(self) -> None:
         """

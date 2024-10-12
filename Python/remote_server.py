@@ -84,7 +84,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         mdf3 = 1.2 if fx>0 else 0.6
 
         if np.abs(angular_velocity) >= 1 or not self.yawStab : self.yawPID.set_setpoint(self.yaw)
-        yaw_pid = self.yawPID.update(self.yaw, self.navx.elapsed_time) if (np.abs(angular_velocity) < 1) & self.yawStab else 0
+        yaw_pid = self.yawPID.update(self.yaw, self.timer.getInterval()) if (np.abs(angular_velocity) < 1) & self.yawStab else 0
         #print(yaw_pid)
 
         m1 = fx * mdf1/2 + np.sqrt(3) * fy / 2 + 0.32 * (angular_velocity + yaw_pid)
