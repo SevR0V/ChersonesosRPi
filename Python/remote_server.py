@@ -12,7 +12,7 @@ to_rad = math.pi / 180
 
 
 class RemoteUdpDataServer(asyncio.Protocol):
-    def __init__(self, timer, bridge, thrusters, light):
+    def __init__(self, timer, bridge):
         self.timer = timer
         self.bridge = bridge
         self.remote_addres = None
@@ -248,22 +248,18 @@ class RemoteUdpDataServer(asyncio.Protocol):
     def dataCalculationTransfer(self):
         
 
-        """  self.bridge.set_mot_servo(0, 12.0)
-            self.bridge.set_mot_servo(4, 100.0)
-            self.bridge.set_mot_servo(7, -52.0)
-        
-            try:
-                # Transfer data over SPI
-                self.bridge.transfer()
-                # print(", ".join(hex(b) for b in bridge.tx_buffer))
-                print("q1 = ", self.bridge.get_man_q(0))
-                print("q2 = ", self.bridge.get_man_q(1))
-                print("q3 = ", self.bridge.get_man_q(2))
-                # Delay
-                time.sleep(1)
-        
-            except:
-                self.bridge.close() """   
+        self.bridge.set_mot_servo(0, 12.0)
+        self.bridge.set_mot_servo(4, 100.0)
+        self.bridge.set_mot_servo(7, -52.0)
+        try:
+            # Transfer data over SPI
+            self.bridge.transfer()
+            # print(", ".join(hex(b) for b in bridge.tx_buffer))
+            print("q1 = ", self.bridge.get_man_q(0))
+            print("q2 = ", self.bridge.get_man_q(1))
+            print("q3 = ", self.bridge.get_man_q(2))
+        except:
+            self.bridge.close() 
         
         horizontal_motors_thrust = self.calculate_horizontal_thrusters_force(self.reference_thrust_direction, self.reference_rotation_velocity)
         vertical_motors_thrust = self.calculate_vertiacal_thrusters_force(self.roll, self.pitch, self.reference_vertical_thrust, self.reference_thrust_direction)

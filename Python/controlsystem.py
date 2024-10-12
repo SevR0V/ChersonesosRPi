@@ -47,6 +47,24 @@ class YFrameControlSystem:
     def setAxisInput(self, controlAxis: ControlAxes, input):
         self.axesInputs[controlAxis] = input
 
+    def setAxesValues(self, inputs):
+        self.axesValues = inputs
+
+    def setAxisValues(self, controlAxis: ControlAxes, input):
+        self.axesValues[controlAxis] = input
+
+    def setStabilizations(self, inputs):
+        self.stabs = inputs
+
+    def setStabilization(self, controlAxis: ControlAxes, input):
+        self.stabs[controlAxis] = input
+
+    def getMotsControls(self):
+        return self.motsOutputs
+
+    def getMotControl(self, controlAxis: ControlAxes):
+        return self.motsOutputs[controlAxis]
+
 
     def calculateHorizontalThrust(self):
         mdf1 = 0.6 if self.axesInputs[ControlAxes.STRAFE]>0 else 1

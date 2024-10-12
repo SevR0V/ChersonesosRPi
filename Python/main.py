@@ -2,9 +2,6 @@ import asyncio
 import time
 import pigpio
 from remote_server import RemoteUdpDataServer
-from thruster import Thrusters
-from os import system
-from ligths import Lights
 from SPIContainer import SPI_Xfer_Container
 from asynctimer import AsyncTimer
 
@@ -12,7 +9,6 @@ time.sleep(2)
 
 pi = pigpio.pi()
 loop = asyncio.get_event_loop()
-
 #init thrusters parameters
 thrustersPins = [10, 9, 17, 22, 27, 11]
 thrustersEnPins = [16]
@@ -36,12 +32,10 @@ timerInterval = 1/500 #500 Hz timer interval
 
 #init devices
 timer = timer = AsyncTimer(timerInterval, loop)
-thrusters = Thrusters(pi, thrustersPins, thrustersEnPins, thrustersDirCorr, thrusterZeroDZ, thrusterBoundsDZ)
-lights = Lights(pi, lightsPins)
 bridge = SPI_Xfer_Container(pi, SPIChannel, SPISpeed, SPIFlags)
 
 #init main server
-udp_server = RemoteUdpDataServer(timer, bridge, thrusters, lights)
+udp_server = RemoteUdpDataServer(timer, bridge)
 
 #create tasks
 udp_server_task = loop.create_datagram_endpoint(lambda: udp_server, local_addr=('0.0.0.0', 1337))
