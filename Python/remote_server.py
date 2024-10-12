@@ -40,7 +40,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.pitch = 0
         self.depth_filter = ExpMovingAverageFilter(0.8)
         self.controlSystem = ControlSystem
-        
+        a = (0,0,0,0,0,0)
+        self.controlSystem.setAxesInputs(a)
+
 #         self.depth_sensor = MS5837
         
         try:
@@ -266,9 +268,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         
             except:
                 self.bridge.close() """   
-        a = (0,0,0,0,0,0)
-        self.controlSystem.setAxesInputs(a)
-
+        
         horizontal_motors_thrust = self.calculate_horizontal_thrusters_force(self.reference_thrust_direction, self.reference_rotation_velocity)
         vertical_motors_thrust = self.calculate_vertiacal_thrusters_force(self.roll, self.pitch, self.reference_vertical_thrust, self.reference_thrust_direction)
 
