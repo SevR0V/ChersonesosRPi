@@ -6,7 +6,7 @@ import time
 import camera
 import manipulator
 import ms5837
-
+from controlsystem import ControlSystem, ControlAxes
 from utils import constrain, normalized, PID, ExpMovingAverageFilter
 
 to_rad = math.pi / 180
@@ -39,6 +39,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.roll = 0
         self.pitch = 0
         self.depth_filter = ExpMovingAverageFilter(0.8)
+        self.controlSystem = ControlSystem
+        ControlSystem.setAxesInputs((0,0,0,0,0,0))
         
 #         self.depth_sensor = MS5837
         
@@ -83,7 +85,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         mdf2 = 1 if fx>0 else 0.6
         mdf3 = 1.2 if fx>0 else 0.6
 
-        if np.abs(angular_velocity) >= 1 or not self.yawStab : self.yawPID.set_setpoint(self.yaw)
+        if np.abs(angular_velocity) >= 1 or not self.yawStab : self.yawPID.setSetpoint(self.yaw)
         yaw_pid = self.yawPID.update(self.yaw, self.timer.getInterval()) if (np.abs(angular_velocity) < 1) & self.yawStab else 0
         #print(yaw_pid)
 
@@ -112,7 +114,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         #ki_pitch = -0.1
         
         if not ((np.abs(thrust)<1) and self.depthStab):
-                self.depthPID.set_setpoint(self.depth)
+                self.depthPID.setSetpoint(self.depth)
         
         #if np.abs(roll_error) < 5:
         #    self.rollPI += roll_error * ki_roll * self.navx.elapsed_time
@@ -178,14 +180,14 @@ class RemoteUdpDataServer(asyncio.Protocol):
         # self.rollSP += received[11] * self.navx.elapsed_time * 1000
         # self.pitchSP += received[12] * self.navx.elapsed_time * 1000
         
-        if received[11]: self.rollPID.set_setpoint(self.rollPID.setpoint + received[11] * self.timer.getInterval() * 1000)
-        if received[12]: self.pitchPID.set_setpoint(self.pitchPID.setpoint + received[12] * self.timer.getInterval() * 1000)
+        if received[11]: self.rollPID.setSetpoint(self.rollPID.setpoint + received[11] * self.timer.getInterval() * 1000)
+        if received[12]: self.pitchPID.setSetpoint(self.pitchPID.setpoint + received[12] * self.timer.getInterval() * 1000)
         
         if(received[13]):
-            self.rollPID.set_setpoint(0)
-            self.pitchPID.set_setpoint(0)
-            self.yawPID.set_setpoint(self.yaw)
-            self.depthPID.set_setpoint(self.depth)
+            self.rollPID.setSetpoint(0)
+            self.pitchPID.setSetpoint(0)
+            self.yawPID.setSetpoint(self.yaw)
+            self.depthPID.setSetpoint(self.depth)
             self.rollStab = 0
             self.pitchStab = 0
             self.yawStab = 0
@@ -193,10 +195,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
             #print('setToZero')
             
         if(received[26]):
-                self.rollPID.set_constants(received[14], received[15], received[16])
-                self.pitchPID.set_constants(received[17], received[18], received[19])
-                self.yawPID.set_constants(received[20], received[21], received[22])
-                self.depthPID.set_constants(received[23], received[24], received[25])
+                self.rollPID.setConstants(received[14], received[15], received[16])
+                self.pitchPID.setConstants(received[17], received[18], received[19])
+                self.yawPID.setConstants(received[20], received[21], received[22])
+                self.depthPID.setConstants(received[23], received[24], received[25])
         manipulator.grip(manipulator_grip)
         manipulator.rotate(manipulator_rotate)
         self.rotate_camera(camera_rotate * 1000, self.timer.getInterval())

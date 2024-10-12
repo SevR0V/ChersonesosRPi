@@ -62,7 +62,7 @@ class PID:
         self.last_error = error
         return output
 
-    def set_constants(self, Kp=None, Ki=None, Kd=None):
+    def setConstants(self, Kp=None, Ki=None, Kd=None):
         if Kp is not None:
             self.Kp = Kp
         if Ki is not None:
@@ -72,7 +72,7 @@ class PID:
             self.Kd = Kd
             self.last_error = 0
 
-    def set_setpoint(self, setpoint):
+    def setSetpoint(self, setpoint):
         self.setpoint = setpoint
         self.integral = 0
         self.last_error = 0
