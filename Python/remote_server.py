@@ -120,9 +120,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
         #    self.pitchPI += pitch_error * ki_pitch * self.navx.elapsed_time
         #roll_PID = roll_error * kp_roll + self.rollPI
         #pitch_PID = pitch_error * kp_pitch + self.pitchPI
-        roll_PID = self.rollPID.update(roll, self.navx.elapsed_time) if self.rollStab else 0
-        pitch_PID = self.pitchPID.update(pitch, self.navx.elapsed_time) if self.pitchStab else 0
-        depth_PID = -self.depthPID.update(self.depth, self.navx.elapsed_time) if self.depthStab else 0
+        roll_PID = self.rollPID.update(roll, self.timer.getInterval()) if self.rollStab else 0
+        pitch_PID = self.pitchPID.update(pitch, self.timer.getInterval()) if self.pitchStab else 0
+        depth_PID = -self.depthPID.update(self.depth, self.timer.getInterval()) if self.depthStab else 0
         
 
         roll_PID = constrain(roll_PID, -100, 100)
@@ -178,8 +178,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         # self.rollSP += received[11] * self.navx.elapsed_time * 1000
         # self.pitchSP += received[12] * self.navx.elapsed_time * 1000
         
-        if received[11]: self.rollPID.set_setpoint(self.rollPID.setpoint + received[11] * self.navx.elapsed_time * 1000)
-        if received[12]: self.pitchPID.set_setpoint(self.pitchPID.setpoint + received[12] * self.navx.elapsed_time * 1000)
+        if received[11]: self.rollPID.set_setpoint(self.rollPID.setpoint + received[11] * self.timer.getInterval() * 1000)
+        if received[12]: self.pitchPID.set_setpoint(self.pitchPID.setpoint + received[12] * self.timer.getInterval() * 1000)
         
         if(received[13]):
             self.rollPID.set_setpoint(0)
@@ -199,7 +199,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.depthPID.set_constants(received[23], received[24], received[25])
         manipulator.grip(manipulator_grip)
         manipulator.rotate(manipulator_rotate)
-        self.rotate_camera(camera_rotate * 1000, self.navx.elapsed_time)
+        self.rotate_camera(camera_rotate * 1000, self.self.timer.getInterval())
         # X
         if light_state:
             self.light.on()
@@ -209,6 +209,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
             ##print('Lights off')
         ##print(light_state)                
    
+    '''
     def navx_data_received(self, sender, data):
         pitch, roll, yaw, heading = data
         roll += 0  # HACK: error compensation
@@ -243,7 +244,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
             #telemetry_data = struct.pack('=ffff', roll, pitch, yaw, heading)
             telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, heading, self.depth, self.rollPID.setpoint, self.pitchPID.setpoint)
             self.transport.sendto(telemetry_data, self.remote_addres)
-
+    '''
 
     def dataCalculationTransfer(self):
         
