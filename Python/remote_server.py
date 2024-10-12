@@ -146,7 +146,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
     def datagram_received(self, data, address):
         ###print("datagram_received")
         packet = data
-        print(packet)
+        #print(packet)
         # ###print(packet)
         if len(packet) == 2 and packet[0] == 0xAA and packet[1] == 0xFF:
             self.remote_addres = address
