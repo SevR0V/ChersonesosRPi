@@ -32,7 +32,7 @@ class YFrameControlSystem:
                      PID(10, 0, 0, 0), 
                      PID(10, 0, 0, 0))
         # (hor1,hor2,hor3,ver1,ver2,ver3)
-        self.motsOutputs    = (0, 0, 0, 0, 0, 0)
+        self.motsOutputs = (0, 0, 0, 0, 0, 0)
     
     def setPIDConstants(self, controlAxis: ControlAxes, constants):
         Kp, Ki, Kd = constants
