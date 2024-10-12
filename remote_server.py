@@ -13,12 +13,14 @@ to_rad = math.pi / 180
 
 
 class RemoteUdpDataServer(asyncio.Protocol):
-    def __init__(self, navx, thrusters, light):
-        self.navx = navx
+    def __init__(self, timer, bridge, thrusters, light):
+        self.timer = timer
+        self.bridge = bridge
         self.remote_addres = None
         self.thrusters = thrusters
         self.light = light
-        navx.subscribe(self.navx_data_received)
+        timer.subscribe(self.dataCalculationTransfer)
+        timer.start()
         self.last_time = 0
         self.camera_angle = 50
         self.heading = 0
@@ -61,27 +63,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
         camera.rotate(self.camera_angle)
         time.sleep(2)
         print('Ready to drown!')
-        
-#         for i in range(100):
-#             for thruster in range(6):
-#                 thrusters.set_thrust(thruster, i)
-#                 ###print(i)
-#                 time.sleep(0.002)
-#         for i in range(100):
-#             for thruster in range(6):
-#                 thrusters.set_thrust(thruster, 99-i)
-#                 ###print(99-i)
-#                 time.sleep(0.002)
-#         for i in range(100):
-#             for thruster in range(6):
-#                 thrusters.set_thrust(thruster, -i)
-#                 ###print(-i)
-#                 time.sleep(0.002)
-#         for i in range(100):
-#             for thruster in range(6):
-#                 thrusters.set_thrust(thruster, i-99)
-#                 ###print(i-99)
-#                 time.sleep(0.002)
 
     def connection_made(self, transport):
         self.transport = transport
@@ -223,9 +204,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         else:
             self.light.off()
             ##print('Lights off')
-        ##print(light_state)
-                
-
+        ##print(light_state)                
+   
     def navx_data_received(self, sender, data):
         pitch, roll, yaw, heading = data
         roll += 0  # HACK: error compensation
@@ -260,6 +240,28 @@ class RemoteUdpDataServer(asyncio.Protocol):
             #telemetry_data = struct.pack('=ffff', roll, pitch, yaw, heading)
             telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, heading, self.cur_depth, self.rollPID.setpoint, self.pitchPID.setpoint)
             self.transport.sendto(telemetry_data, self.remote_addres)
+
+
+    def dataCalculationTransfer(self):
+       print(self.reference_thrust_direction)
+       """  self.bridge.set_mot_servo(0, 12.0)
+        self.bridge.set_mot_servo(4, 100.0)
+        self.bridge.set_mot_servo(7, -52.0)
+    
+        try:
+            # Transfer data over SPI
+            self.bridge.transfer()
+            # print(", ".join(hex(b) for b in bridge.tx_buffer))
+            print("q1 = ", self.bridge.get_man_q(0))
+            print("q2 = ", self.bridge.get_man_q(1))
+            print("q3 = ", self.bridge.get_man_q(2))
+            # Delay
+            time.sleep(1)
+    
+        except:
+            self.bridge.close() """        
+        
+
             
 
     def shutdown(self):
