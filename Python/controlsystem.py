@@ -1,9 +1,9 @@
-import enum
+from enum import IntEnum
 import numpy as np
 from utils import constrain, normalized, PID, ExpMovingAverageFilter
 
 
-class ControlAxes(enum):
+class ControlAxes(IntEnum):
     FORWARD     = 0
     STRAFE      = 1
     DEPTH       = 2
@@ -11,7 +11,7 @@ class ControlAxes(enum):
     PITCH       = 4    
     YAW         = 5
 
-class Motors(enum):
+class Motors(IntEnum):
     H_FRONTLEFT     = 0
     H_FRONTRIGHT    = 1
     H_REAR          = 2
