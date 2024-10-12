@@ -44,7 +44,7 @@ class ControlSystem():
     def setAxesInputs(self, inputs):
         self.axesInputs = inputs
 
-    def setAxesInputs(self, controlAxis: ControlAxes, input):
+    def setAxisInputs(self, controlAxis: ControlAxes, input):
         self.axesInputs[controlAxis] = input
 
 
