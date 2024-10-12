@@ -108,7 +108,7 @@ class SPI_Xfer_Container:
         self.pi.spi_close(self.spi_handle)
         self.pi.stop()
 
-bridge = SPI_Xfer_Container(0, 500000, 0)
+#bridge = SPI_Xfer_Container(0, 500000, 0)
 
 #while True:
 #    bridge.set_mot_servo(0, 12.0)
