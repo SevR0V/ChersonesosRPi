@@ -40,8 +40,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.pitch = 0
         self.depth_filter = ExpMovingAverageFilter(0.8)
         self.controlSystem = ControlSystem
-        a = (0,0,0,0,0,0)
-        ControlSystem.setAxesInputs(a)
+        self.controlSystem.setAxesInputs((0,0,0,0,0,0))
         
 #         self.depth_sensor = MS5837
         
