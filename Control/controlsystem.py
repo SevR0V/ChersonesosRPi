@@ -5,7 +5,7 @@ from utils import constrain, normalized, PID, ExpMovingAverageFilter
 """ TODO
     Разделить на класс системы управления (оболочка со всеми основными методами (сетерами, гетерами и т.д.)) 
      и класс конструкции (основные вычиления, параметры и их енумы)
-      Надобно для удобной дальнейшей работы и удобной интеграции любых фремов (YY6 (Y horintal and vertical, 6 mots), SY (squre horizontal Y vertical, 7 mots), SS (squre horizontal and vertical, 8 mots) и т.п.) """
+      Надобно для удобной дальнейшей работы и удобной интеграции любых фремов (YY (Y horintal and vertical, 6 mots), SY (squre horizontal Y vertical, 7 mots), SS (squre horizontal and vertical, 8 mots) и т.п.) """
 class ControlAxes(IntEnum):
     FORWARD     = 0
     STRAFE      = 1
