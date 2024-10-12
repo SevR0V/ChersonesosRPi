@@ -19,7 +19,7 @@ class Motors(IntEnum):
     V_FRONTRIGHT    = 4
     V_REAR          = 5
 
-class ControlSystem():
+class ControlSystem:
     def __init__(self):
         # (forward,strafe,depth,roll,pitch,yaw)
         self.axesInputs     = (0, 0, 0, 0, 0, 0)
