@@ -130,10 +130,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
         try:
             # Transfer data over SPI
             self.bridge.transfer()
-            # print(", ".join(hex(b) for b in bridge.tx_buffer))
-            #print("q1 = ", self.bridge.get_man_q(0))
-            #print("q2 = ", self.bridge.get_man_q(1))
-            #print("q3 = ", self.bridge.get_man_q(2))
+            #print(", ".join(hex(b) for b in self.bridge.tx_buffer))
+            print("q1 = ", self.bridge.get_man_q(0))
+            print("q2 = ", self.bridge.get_man_q(1))
+            print("q3 = ", self.bridge.get_man_q(2))
         except:
             print("SPI TRANSFER FAILURE")
 
