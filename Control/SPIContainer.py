@@ -4,6 +4,8 @@ import time
 from enum import IntEnum
 
 # TX_BUFFER: [ MAGIC_START | MOT_SERVO | MAN_Q | ... | MAGIC_END ]
+# TX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | MOTORS (6x4)(24) | CAM_ANGLE (1x4)(4) | ... | MAGYC_END (1x1)(1) ]
+# RX bytes: [MAGIC_START (1x1)(1) | ROLL (1x4)(4) | PITCH (1x4)(4) | YAW (1x4)(4) | CUR_ALL | CUR_LIGHT | 24V | ... | MAGYC_END (1x1)(1) ]
 
 class RxBufferOffsets(IntEnum):
     MAGIC_START = 0

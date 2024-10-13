@@ -10,22 +10,12 @@ time.sleep(2)
 pi = pigpio.pi()
 loop = asyncio.get_event_loop()
 #init thrusters parameters
-thrustersPins = [10, 9, 17, 22, 27, 11]
-thrustersEnPins = [16]
 thrustersDirCorr = [-1, -1, 1, 1, 1, -1]
-    #trusters deadzones
-    # PWM Servo values:
-    # 1000...|1000+low bounds DZ|...|1500-low zero DZ|...1500...|1500+high zero DZ|...|2000-high bounds DZ|...2000
-thrusterZeroDZ = [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]]
-thrusterBoundsDZ = [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]]
-
-#init ligths parameters
-lightsPins = [19, 26]
 
 #init SPI parameters
 SPIChannel = 0
 SPISpeed = 500000
-SPIFlags = 0 
+SPIFlags = 0
 
 #init timer parameters
 timerInterval = 1/500 #500 Hz timer interval
