@@ -94,7 +94,7 @@ class YFrameControlSystem:
         self.__axesValues = inputs
         for i in range(6):
             if self.__filters[i] is not None: 
-                self.__axesValues[i] = filter.update(inputs[i])
+                self.__axesValues[i] = self.__filters[i].update(inputs[i])
 
     def setAxisValue(self, controlAxis: ControlAxes, input):
         self.__axesValues[controlAxis] = input

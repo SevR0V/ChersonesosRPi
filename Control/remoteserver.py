@@ -3,19 +3,17 @@ import struct
 import math
 import time
 import ms5837
-from yframecontrolsystem import YFrameControlSystem
-from SPIContainer import SPI_Xfer_Container
 
 to_rad = math.pi / 180
 
 class RemoteUdpDataServer(asyncio.Protocol):
     def __init__(self, contolSystem, timer, bridge, thrustersDirCorr):
         self.timer = timer
-        self.bridge = SPI_Xfer_Container(0, 500000, 0)
+        self.bridge = bridge
         self.remoteAddres = None
         timer.subscribe(self.dataCalculationTransfer)
         timer.start()
-        self.controlSystem = YFrameControlSystem()
+        self.controlSystem = contolSystem
         self.powerTarget = 0
         self.cameraRotate = 0
         self.lightState = 0
@@ -145,11 +143,16 @@ class RemoteUdpDataServer(asyncio.Protocol):
         else:
             depth = 0        
 
-        hfl, hfr, hr, vfl, vfr, vr   = tuple(self.controlSystem.getMotsControls())
-        print("HFL: ", hfl, "HFR: ", hfr, "HR: ", hr, "VFL: ", vfl, "VFR: ", vfr, "VR:", vr)
+        self.controlSystem.setAxisValue(self.controlSystem.ControlAxes.DEPTH, depth)
+
+        #hfl, hfr, hr, vfl, vfr, vr   = self.controlSystem.getMotsControls()
+        #print("HFL: ", hfl, "HFR: ", hfr, "HR: ", hr, "VFL: ", vfl, "VFR: ", vfr, "VR:", vr)
+
+        roll, pitch, yaw = 0
+
 
         if self.remoteAddres:
-            telemetry_data = struct.pack('=fffffff', vfl, vfr, vr, 0, depth, self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
+            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, 0, depth, self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
             self.transport.sendto(telemetry_data, self.remoteAddres)
 
     def shutdown(self):       

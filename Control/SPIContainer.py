@@ -40,8 +40,18 @@ class TxBufferOffsets(IntEnum):
 
 SPI_RX_MAN_Qx_FLAG = lambda x: np.uint64(1 << x)
 
+SPI_RX_EULERx_FLAG = lambda x: np.uint64(1 << x)
+SPI_RX_CUR_ALLx_FLAG = lambda x: np.uint64(1 << (3 + x))
+SPI_RX_CUR_LIGHTx_FLAG = lambda x: np.uint64(1 << (4 + x))
+SPI_RX_VOLTS24x_FLAG = lambda x: np.uint64(1 << (5 + x))
+
+
 SPI_TX_DES_MOT_SERVOx_FLAG = lambda x: np.uint64(1 << x)
 SPI_TX_DES_MAN_Qx_FLAG = lambda x: np.uint64(1 << (8 + x))
+
+SPI_TX_DES_MOTORSx_FLAG = lambda x: np.uint64(1 << x)
+SPI_TX_DES_CAM_ANGLEx_FLAG = lambda x: np.uint64(1 << (6 + x))
+
 
 class SPI_Xfer_Container:
     BUFFER_SIZE = 200
