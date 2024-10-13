@@ -4,8 +4,25 @@ import time
 from enum import IntEnum
 
 # TX_BUFFER: [ MAGIC_START | MOT_SERVO | MAN_Q | ... | MAGIC_END ]
-# TX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | MOTORS (6x4)(24) | CAM_ANGLE (1x4)(4) | ... | MAGYC_END (1x1)(1) ]
-# RX bytes: [MAGIC_START (1x1)(1) | ROLL (1x4)(4) | PITCH (1x4)(4) | YAW (1x4)(4) | CUR_ALL | CUR_LIGHT | 24V | ... | MAGYC_END (1x1)(1) ]
+# TX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | MOTORS (6x4)(24) | CAM_ANGLE (1x4)(4) | ... | MAGIC_END (1x1)(1) ]
+# RX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | EULER (3x4)(12) | CUR_ALL (1x4)(4) | CUR_LIGHT (1x4)(4) | VOLTS24 (1x4)(4) | ... | MAGIC_END (1x1)(1) ]
+
+
+# class RxBufferOffsets(IntEnum):
+#     MAGIC_START = 0
+#     FLAGS = 1
+#     EULER = 9
+#     CUR_ALL = 21
+#     CUR_LIGHT = 25
+#     VOLTS24 = 29
+#     MAGIC_END = 199
+
+# class TxBufferOffsets(IntEnum):
+#     MAGIC_START = 0
+#     FLAGS = 1
+#     MOTORS = 9
+#     CAM_ANGLE = 33    
+#     MAGIC_END = 199
 
 class RxBufferOffsets(IntEnum):
     MAGIC_START = 0
@@ -45,10 +62,30 @@ class SPI_Xfer_Container:
         # RX
         self.man_q = [0.0] * 3
         self.euler = [0.0] * 3
+        self.currentAll = 0
+        self.cirrentLights = 0
+        self.voltage24 = 0
 
         self.tx_refresh_flags = np.uint64(0)
         self.rx_refresh_flags = np.uint64(0)
 
+    # def _parse_rx_buffer(self):
+    #     if (self.rx_buffer[RxBufferOffsets.MAGIC_START] != self.MAGIC_START or
+    #         self.rx_buffer[RxBufferOffsets.MAGIC_END] != self.MAGIC_END):
+    #         return False
+
+    #     offset = RxBufferOffsets.FLAGS
+    #     flags = np.uint64(struct.unpack('q', self.rx_buffer[offset : offset + 8]))
+    #     self.rx_refresh_flags = flags
+
+    #     for index in range(0, 3):
+    #         if flags & SPI_RX_MAN_Qx_FLAG(index):
+    #             offset = RxBufferOffsets.EULER + 4 * index
+    #             self.euler[index] = struct.unpack('f', self.rx_buffer[offset : offset + 4])
+        
+        
+    #     return True
+    
     def _parse_rx_buffer(self):
         if (self.rx_buffer[RxBufferOffsets.MAGIC_START] != self.MAGIC_START or
             self.rx_buffer[RxBufferOffsets.MAGIC_END] != self.MAGIC_END):
@@ -62,7 +99,7 @@ class SPI_Xfer_Container:
             if flags & SPI_RX_MAN_Qx_FLAG(index):
                 offset = RxBufferOffsets.MAN_Q + 4 * index
                 self.man_q[index] = struct.unpack('f', self.rx_buffer[offset : offset + 4])
-
+        
         return True
 
     def _fill_tx_buffer(self):

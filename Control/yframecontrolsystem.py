@@ -1,6 +1,6 @@
 from enum import IntEnum
 import numpy as np
-from utils import constrain, normalized, PID, ExpMovingAverageFilter
+from utils import constrain, PID, ExpMovingAverageFilter
 
 class YFrameControlSystem:
     def __init__(self):

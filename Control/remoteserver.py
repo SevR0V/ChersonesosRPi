@@ -4,13 +4,14 @@ import math
 import time
 import ms5837
 from yframecontrolsystem import YFrameControlSystem
+from SPIContainer import SPI_Xfer_Container
 
 to_rad = math.pi / 180
 
 class RemoteUdpDataServer(asyncio.Protocol):
-    def __init__(self, timer, bridge):
+    def __init__(self, contolSystem, timer, bridge, thrustersDirCorr):
         self.timer = timer
-        self.bridge = bridge
+        self.bridge = SPI_Xfer_Container(0, 500000, 0)
         self.remoteAddres = None
         timer.subscribe(self.dataCalculationTransfer)
         timer.start()
@@ -18,6 +19,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.powerTarget = 0
         self.cameraRotate = 0
         self.lightState = 0
+        self.thrustersDirCorr = thrustersDirCorr
         try:
             self.depth_sensor = ms5837.MS5837(model=ms5837.MODEL_30BA, bus=1)
             self.depth_sensor.init()
@@ -149,9 +151,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if self.remoteAddres:
             telemetry_data = struct.pack('=fffffff', vfl, vfr, vr, 0, depth, self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
             self.transport.sendto(telemetry_data, self.remoteAddres)
-        
-
-            
 
     def shutdown(self):       
         self.bridge.close()  

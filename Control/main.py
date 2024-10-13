@@ -4,6 +4,7 @@ import pigpio
 from Control.remoteserver import RemoteUdpDataServer
 from SPIContainer import SPI_Xfer_Container
 from asynctimer import AsyncTimer
+from yframecontrolsystem import YFrameControlSystem
 
 time.sleep(2)
 
@@ -17,6 +18,9 @@ SPIChannel = 0
 SPISpeed = 500000
 SPIFlags = 0
 
+#init control system
+controlSystem = YFrameControlSystem()
+
 #init timer parameters
 timerInterval = 1/500 #500 Hz timer interval
 
@@ -25,7 +29,7 @@ timer = timer = AsyncTimer(timerInterval, loop)
 bridge = SPI_Xfer_Container(pi, SPIChannel, SPISpeed, SPIFlags)
 
 #init main server
-udp_server = RemoteUdpDataServer(timer, bridge)
+udp_server = RemoteUdpDataServer(controlSystem, timer, bridge, thrustersDirCorr)
 
 #create tasks
 udp_server_task = loop.create_datagram_endpoint(lambda: udp_server, local_addr=('0.0.0.0', 1337))
