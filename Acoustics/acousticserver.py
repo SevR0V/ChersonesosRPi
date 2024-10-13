@@ -1,7 +1,6 @@
 import asyncio
 class RemoteUdpDataServer(asyncio.Protocol):
-        def __init__(self, serialRW):
-                
+        def __init__(self, serialRW):                
                 self.remote_addres = None
                 print('Ready to send perdezh')
                 
@@ -22,7 +21,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
                 if not self.remote_addres:
                         return
-                #received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
+                
                 self.serialRW.send_data(packet)
         
         def serialRW_data_received(self, sender, data):
@@ -30,8 +29,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 if self.remote_addres:
                         #telemetry_data = struct.pack('=fffffff', data)
                         self.transport.sendto(bytes(data,'utf-8'), self.remote_addres)
-            
-
 
         def shutdown(self):
                 print('Perdezh is ended')

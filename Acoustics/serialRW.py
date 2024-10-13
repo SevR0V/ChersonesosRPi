@@ -1,5 +1,4 @@
 import asyncio
-import serial_asyncio
 
 class SerialRW(asyncio.Protocol):
 	def __init__(self):
@@ -18,8 +17,7 @@ class SerialRW(asyncio.Protocol):
 		if b'\n' in data:
 			print(f"Recieved from UART: {self.data}")
 			self.on_data(self,self.data[0:-4])
-			self.data = ''
-		
+			self.data = ''		
 			
 	def send_data(self, data):
 		print(f"Sending to UART: {data}")
