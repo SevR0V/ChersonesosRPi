@@ -3,11 +3,13 @@ import struct
 import math
 import time
 import ms5837
+from SPIContainer import SPI_Xfer_Container
+from yframecontrolsystem import YFrameControlSystem
 
 to_rad = math.pi / 180
 
 class RemoteUdpDataServer(asyncio.Protocol):
-    def __init__(self, contolSystem, timer, bridge, thrustersDirCorr):
+    def __init__(self, contolSystem: YFrameControlSystem, timer, bridge: SPI_Xfer_Container, thrustersDirCorr):
         self.timer = timer
         self.bridge = bridge
         self.remoteAddres = None
@@ -16,7 +18,16 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.controlSystem = contolSystem
         self.powerTarget = 0
         self.cameraRotate = 0
+        self.cameraAngle = 0
         self.lightState = 0
+        self.eulers = [0.0, 0.0, 0.0]
+        self.accelerations = [0.0, 0.0, 0.0]
+        self.eulerMag = [0.0, 0.0, 0.0]
+        self.voltage = 0
+        self.curAll = 0
+        self.curLights = [0.0, 0.0]
+        self.depth = 0
+        
         self.thrustersDirCorr = thrustersDirCorr
         try:
             self.depth_sensor = ms5837.MS5837(model=ms5837.MODEL_30BA, bus=1)
@@ -53,6 +64,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         self.powerTarget = received[3]
         self.cameraRotate = received[7]
+        self.cameraAngle += self.cameraRotate * self.timer.getInterval() * 250
         self.lightState = received[9]
 
         rollStab =  1 if received[10] & 0b00000001 else 0
@@ -86,86 +98,56 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.DEPTH, [received[23], received[24], received[25]])           
         self.controlSystem.setdt(self.timer.getInterval())
         self.controlSystem.updateControl()
-    '''
-    def navx_data_received(self, sender, data):
-        pitch, roll, yaw, heading = data
-        roll += 0  # HACK: error compensation
-        pitch += 0
-        roll *= -1
-        
-
-        self.angular_velocity = sender.angular_velocity
-
-        ####print(f"RPY {roll:.2f} {pitch:.2f} {yaw:.2f} Angular velocity {self.angular_velocity:.2f}")
-
-        horizontal_motors_thrust = self.calculate_horizontal_thrusters_force(self.reference_thrust_direction, self.reference_rotation_velocity)
-        vertical_motors_thrust = self.calculate_vertiacal_thrusters_force(roll, pitch, self.reference_vertical_thrust, self.reference_thrust_direction)
-
-        h1, h2, h3 = horizontal_motors_thrust 
-        v1, v2, v3 = vertical_motors_thrust
-
-        ####print("Motors before:", v1, h1, v2, h2, v3, h3)
-        self.thrusters.set_thrust_all(np.multiply([v1, h1, v2, h2, v3, h3], self.power_target))
-        ####print(" Motors after:", np.multiply([v1, h1, v2, h2, v3, h3], self.camera_angle))
-        ##print(self.power_target)
-        if self.ds_init:
-            if self.depth_sensor.read(ms5837.OSR_256):
-                depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
-        else:
-            depth = 0
-        ####print("Depth:", depth)
-        self.depth = self.depth_filter.update(depth)
-        self.yaw = yaw
-        #print(f"Signal: {depth:.2f} Filtered: {self.cur_depth:.2f}")
-        if self.remote_addres:
-            #telemetry_data = struct.pack('=ffff', roll, pitch, yaw, heading)
-            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, heading, self.depth, self.rollPID.setpoint, self.pitchPID.setpoint)
-            self.transport.sendto(telemetry_data, self.remote_addres)
-    '''
 
     def dataCalculationTransfer(self):
-        self.bridge.set_mot_servo(0, 12.0)
-        self.bridge.set_mot_servo(4, 100.0)
-        self.bridge.set_mot_servo(7, -52.0)
-        q1, q2, q3 = (0,0,0)
+        # self.bridge.set_mot_servo(0, 12.0)
+        # self.bridge.set_mot_servo(4, 100.0)
+        # self.bridge.set_mot_servo(7, -52.0)
+        
+        self.controlSystem.updateControl()
+        if self.ds_init:
+            if self.depth_sensor.read(ms5837.OSR_256):
+                self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
+            
+        self.bridge.set_cam_angle_value(self.cameraAngle)
+        lightsValues = [50*self.lightState, 50*self.lightState]
+        self.bridge.set_lights_values(lightsValues)
+        self.bridge.set_mots_values(self.controlSystem.getMotsControls())
+        self.bridge.set_cam_angle_value(self.cameraAngle)     
         try:
             # Transfer data over SPI
             self.bridge.transfer()
-            #print(", ".join(hex(b) for b in self.bridge.tx_buffer))
-            q1 = self.bridge.get_man_q(0)[0]
-            q2 = self.bridge.get_man_q(1)[0]
-            #q3 = self.bridge.get_man_q(2)[0]
-            q3: float = 0
-            print("q1 = ", q1)
-            print("q2 = ", q2)
-            print("q3 = ", q3)
         except:
             print("SPI TRANSFER FAILURE")
-
-        depth = 0.0
-        if self.ds_init:
-            if self.depth_sensor.read(ms5837.OSR_256):
-                depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
-        else:
-            depth = 0        
-
-        self.controlSystem.setAxisValue(self.controlSystem.ControlAxes.DEPTH, depth)
-
-        #hfl, hfr, hr, vfl, vfr, vr   = self.controlSystem.getMotsControls()
-        #print("HFL: ", hfl, "HFR: ", hfr, "HR: ", hr, "VFL: ", vfl, "VFR: ", vfr, "VR:", vr)
-
-        roll = 0.0 if q1 is None else q1
-        pitch = 0.0 if q2 is None else q2
-        yaw:float = 0.0 if q3 is None else q3
-        # print("ROLL: ",type(roll))
-        # print("pitch: ",type(pitch))
-        # print("yaw: ",type(yaw))
-        # print("z: ",type(0.0))
-        # print("z: ",type(0.0))
-
+        
+        eulers = self.bridge.get_IMU_angles()
+        if eulers is not None:
+            self.eulers = eulers            
+        voltage = self.bridge.get_voltage()
+        if voltage is not None:
+            self.voltage = voltage
+        currAll = self.bridge.get_current_all()
+        if currAll is not None:
+            self.curAll = currAll
+        curLights = self.bridge.get_current_lights()
+        if curLights is not None:
+            self.curLights = curLights
+        acc = self.bridge.get_IMU_accelerometer()
+        if acc is not None:
+            self.accelerations = acc
+        mag = self.bridge.get_IMU_magnetometer()
+        if mag is not None:
+            self.eulerMag = mag
+        self.controlSystem.setAxesValues([0, 0, self.depth, self.eulers[0], self.eulers[1], self.eulers[2]])
 
         if self.remoteAddres:
-            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, 0.0, depth, self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
+            telemetry_data = struct.pack('=fffffff', self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.ROLL), 
+                                         self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.PITCH), 
+                                         self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW), 
+                                         0.0, 
+                                         self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.DEPTH), 
+                                         self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), 
+                                         self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
             self.transport.sendto(telemetry_data, self.remoteAddres)
 
     def shutdown(self):       

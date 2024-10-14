@@ -8,54 +8,58 @@ from enum import IntEnum
 # RX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | EULER (3x4)(12) | EULER_ACC (3x4)(12) | EULER_MAG (3x4)(12) | CUR_ALL (2x4)(4) | CUR_LIGHT1 (1x4)(4) | CUR_LIGHT2 (1x4)(4) | VOLTS24 (1x4)(4) | ... | MAGIC_END (1x1)(1) ]
 
 
-# class RxBufferOffsets(IntEnum):
-#     MAGIC_START = 0
-#     FLAGS = 1
-#     EULER = 9
-#     EULER_ACC = 21
-#     EULER_MAG = 33
-#     CUR_ALL = 45
-#     CUR_LIGHT1 = 49
-#     CUR_LIGHT1 = 53
-#     VOLTS24 = 57
-#     MAGIC_END = 199
-
-# class TxBufferOffsets(IntEnum):
-#     MAGIC_START = 0
-#     FLAGS = 1
-#     LIGHT = 9
-#     MOTORS = 17
-#     CAM_ANGLE = 41    
-#     MAGIC_END = 199
-
 class RxBufferOffsets(IntEnum):
     MAGIC_START = 0
     FLAGS = 1
-    MAN_Q = 9
-    EULER = 21
+    EULER = 9
+    EULER_ACC = 21
+    EULER_MAG = 33
+    CUR_ALL = 45
+    CUR_LIGHT1 = 49
+    CUR_LIGHT2 = 53
+    VOLTS24 = 57
     MAGIC_END = 199
 
 class TxBufferOffsets(IntEnum):
     MAGIC_START = 0
     FLAGS = 1
-    MOT_SERVO = 9
-    MAN_Q = 41
+    MOTORS = 9
+    CAM_ANGLE = 33
+    LIGHT = 37 
     MAGIC_END = 199
 
-SPI_RX_MAN_Qx_FLAG = lambda x: np.uint64(1 << x)
 
-SPI_RX_EULERx_FLAG = lambda x: np.uint64(1 << x)
-SPI_RX_CUR_ALLx_FLAG = lambda x: np.uint64(1 << (1 + x))
-SPI_RX_CUR_LIGHTx_FLAG = lambda x: np.uint64(1 << (2 + x))
-SPI_RX_VOLTS24x_FLAG = lambda x: np.uint64(1 << (3 + x))
+SPI_RX_EULERx_FLAG = np.uint64(1 << 0)
+SPI_RX_EULER_ACCx_FLAG = np.uint64(1 << (1))
+SPI_RX_EULER_MAGx_FLAG = np.uint64(1 << (2))
+SPI_RX_CUR_ALLx_FLAG = np.uint64(1 << (3))
+SPI_RX_CUR_LIGHT1x_FLAG = np.uint64(1 << (4))
+SPI_RX_CUR_LIGHT2x_FLAG = np.uint64(1 << (5))
+SPI_RX_VOLTS24x_FLAG = np.uint64(1 << (6))
 
+SPI_TX_DES_MOTORSx_FLAG = np.uint64(1 << 0)
+SPI_TX_DES_LIGHTx_FLAG = np.uint64(1 << (1))
+SPI_TX_DES_CAM_ANGLEx_FLAG = np.uint64(1 << (2))
 
-SPI_TX_DES_MOT_SERVOx_FLAG = lambda x: np.uint64(1 << x)
-SPI_TX_DES_MAN_Qx_FLAG = lambda x: np.uint64(1 << (1 + x))
+baseRxPacket = "Qfffffffffffff"
 
-SPI_TX_DES_MOTORSx_FLAG = lambda x: np.uint64(1 << x)
-SPI_TX_DES_LIGHT_STATEx_FLAG = lambda x: np.uint64(1 << (1 + x))
-SPI_TX_DES_CAM_ANGLEx_FLAG = lambda x: np.uint64(1 << (2 + x))
+def countPacketfSize(packetf):
+    packetSize = 0
+    for char in packetf:
+        packetSize += 1 if char == "B" else 0
+        packetSize += 4 if char == "f" else 0
+        packetSize += 8 if char == "Q" else 0
+    return packetSize
+
+def formPacket(defPacket):
+    packetSize = countPacketfSize(defPacket)    
+    packetSize += 2
+    hollowSize = 200 - packetSize
+    resPacket = defPacket
+    for i in range(hollowSize):
+        resPacket += "B"
+    resPacket = "B" + resPacket + "B"
+    return resPacket
 
 
 class SPI_Xfer_Container:
@@ -71,69 +75,62 @@ class SPI_Xfer_Container:
         self.tx_buffer = bytearray(self.BUFFER_SIZE)
 
         # TX
-        self.des_mot_servo = [0.0] * 8
-        self.des_man_q = [0.0] * 3
+        self.des_lights = [0.0, 0.0,]
+        self.des_mot = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,]
+        self.des_cam_angle = 0.0
 
         # RX
-        self.man_q = [0.0] * 3
-        self.euler = [0.0] * 3
+        self.euler = [0.0, 0.0, 0.0]
+        self.eulerAcc = [0.0, 0.0, 0.0]
+        self.eulerMag = [0.0, 0.0, 0.0]
         self.currentAll = 0
-        self.cirrentLights = 0
+        self.cirrentLight1 = 0
+        self.cirrentLight2 = 0
         self.voltage24 = 0
 
         self.tx_refresh_flags = np.uint64(0)
         self.rx_refresh_flags = np.uint64(0)
 
-    # def _parse_rx_buffer(self):
-    #     if (self.rx_buffer[RxBufferOffsets.MAGIC_START] != self.MAGIC_START or
-    #         self.rx_buffer[RxBufferOffsets.MAGIC_END] != self.MAGIC_END):
-    #         return False
-
-    #     offset = RxBufferOffsets.FLAGS
-    #     flags = np.uint64(struct.unpack('q', self.rx_buffer[offset : offset + 8]))
-    #     self.rx_refresh_flags = flags
-
-    #     for index in range(0, 3):
-    #         if flags & SPI_RX_MAN_Qx_FLAG(index):
-    #             offset = RxBufferOffsets.EULER + 4 * index
-    #             self.euler[index] = struct.unpack('f', self.rx_buffer[offset : offset + 4])
-        
-        
-    #     return True
-    
     def _parse_rx_buffer(self):
         if (self.rx_buffer[RxBufferOffsets.MAGIC_START] != self.MAGIC_START or
             self.rx_buffer[RxBufferOffsets.MAGIC_END] != self.MAGIC_END):
             return False
-
-        offset = RxBufferOffsets.FLAGS
-        flags = np.uint64(struct.unpack('q', self.rx_buffer[offset : offset + 8]))
-        self.rx_refresh_flags = flags
-
-        for index in range(0, 3):
-            if flags & SPI_RX_MAN_Qx_FLAG(index):
-                offset = RxBufferOffsets.MAN_Q + 4 * index
-                self.man_q[index] = struct.unpack('f', self.rx_buffer[offset : offset + 4])
-        
+        rxPacket = 0
+        try:
+            rxPacket = struct.unpack_from("=" + formPacket(baseRxPacket), self.rx_buffer)
+        except:
+            print("SPI RX WRONG PACKET")
+            return False
+        self.rx_refresh_flags = np.uint64(rxPacket[1])
+        self.euler = [rxPacket[2], rxPacket[3], rxPacket[4]] if self.rx_refresh_flags & SPI_RX_EULERx_FLAG else None
+        self.eulerAcc = [rxPacket[5], rxPacket[6], rxPacket[7]] if self.rx_refresh_flags & SPI_RX_EULER_ACCx_FLAG else None
+        self.eulerMag = [rxPacket[8], rxPacket[9], rxPacket[10]] if self.rx_refresh_flags & SPI_RX_EULER_MAGx_FLAG else None
+        self.currentAll = rxPacket[11] if self.rx_refresh_flags & SPI_RX_CUR_ALLx_FLAG else None
+        self.cirrentLight1 = rxPacket[12] if self.rx_refresh_flags & SPI_RX_CUR_LIGHT1x_FLAG else None
+        self.cirrentLight2 = rxPacket[13] if self.rx_refresh_flags & SPI_RX_CUR_LIGHT2x_FLAG else None
+        self.voltage24 = rxPacket[14] if self.rx_refresh_flags & SPI_RX_VOLTS24x_FLAG else None
         return True
 
     def _fill_tx_buffer(self):
         self.tx_buffer[TxBufferOffsets.MAGIC_START] = self.MAGIC_START
         self.tx_buffer[TxBufferOffsets.MAGIC_END] = self.MAGIC_END
 
-        struct.pack_into('q', self.tx_buffer, TxBufferOffsets.FLAGS, self.tx_refresh_flags)
+        struct.pack_into('Q', self.tx_buffer, TxBufferOffsets.FLAGS, self.tx_refresh_flags)
+                
+        if self.tx_refresh_flags & SPI_TX_DES_LIGHTx_FLAG:
+            for index in range(0, 2):           
+                offset = TxBufferOffsets.LIGHT + 4 * index
+                struct.pack_into('f', self.tx_buffer, offset, self.des_lights[index])
 
-        for index in range(0, 8):
-            if self.tx_refresh_flags & SPI_TX_DES_MOT_SERVOx_FLAG(index):
-                offset = TxBufferOffsets.MOT_SERVO + 4 * index
-                struct.pack_into('f', self.tx_buffer, offset, self.des_mot_servo[index])
-
-        for index in range(0, 3):
-            if self.tx_refresh_flags & SPI_TX_DES_MAN_Qx_FLAG(index):
-                offset = TxBufferOffsets.MAN_Q + 4 * index
-                struct.pack_into('f', self.tx_buffer, offset, self.des_man_q[index])
-
-        self.tx_refresh_flags = np.uint64(0)
+        if self.tx_refresh_flags & SPI_TX_DES_MOTORSx_FLAG:
+            for index in range(0, 6):           
+                offset = TxBufferOffsets.MOTORS + 4 * index
+                struct.pack_into('f', self.tx_buffer, offset, self.des_mot[index])
+        
+        if self.tx_refresh_flags & SPI_TX_DES_CAM_ANGLEx_FLAG:
+            offset = TxBufferOffsets.CAM_ANGLE
+            struct.pack_into('f', self.tx_buffer, offset, self.des_cam_angle)
+        #self.tx_refresh_flags = np.uint64(0)
 
     def transfer(self):
         self._fill_tx_buffer()
@@ -141,45 +138,65 @@ class SPI_Xfer_Container:
         return self._parse_rx_buffer()
 
     # Setters
-    def set_mot_servo(self, index, value):
-        if 0 <= index < 8:
-            self.des_mot_servo[index] = value
-            self.tx_refresh_flags |= SPI_TX_DES_MOT_SERVOx_FLAG(index)
-
-    def set_man_q(self, index, value):
-        if 0 <= index < 3:
-            self.des_man_q[index] = value
-            self.tx_refresh_flags |= SPI_TX_DES_MAN_Qx_FLAG(index)
+    def set_mots_values(self, values):
+        self.des_mot = values
+        self.tx_refresh_flags |= SPI_TX_DES_MOTORSx_FLAG
+    
+    def set_lights_values(self, values):
+        self.des_lights = values
+        self.tx_refresh_flags |= SPI_TX_DES_LIGHTx_FLAG
+        
+    def set_cam_angle_value(self, value):
+        self.des_cam_angle = value
+        self.tx_refresh_flags |= SPI_TX_DES_CAM_ANGLEx_FLAG
 
     # Getters
-    def get_man_q(self, index):
-        if 0 <= index < 3 and self.rx_refresh_flags & SPI_RX_MAN_Qx_FLAG(index):
-            self.rx_refresh_flags &= ~(SPI_RX_MAN_Qx_FLAG(index))
-            return self.man_q[index]
+    def get_IMU_angles(self):
+        if self.rx_refresh_flags & SPI_RX_EULERx_FLAG:
+            self.rx_refresh_flags &= ~(SPI_RX_EULERx_FLAG)
+            return self.euler
+        return None
+    
+    def get_IMU_accelerometer(self):
+        if self.rx_refresh_flags & SPI_RX_EULER_ACCx_FLAG:
+            self.rx_refresh_flags &= ~(SPI_RX_EULER_ACCx_FLAG)
+            return self.eulerAcc
+        return None
+    
+    def get_IMU_magnetometer(self):
+        if self.rx_refresh_flags & SPI_RX_EULER_MAGx_FLAG:
+            self.rx_refresh_flags &= ~(SPI_RX_EULER_MAGx_FLAG)
+            return self.eulerMag
+        return None
+    
+    def get_current_all(self):
+        if self.rx_refresh_flags & SPI_RX_CUR_ALLx_FLAG:
+            self.rx_refresh_flags &= ~(SPI_RX_CUR_ALLx_FLAG)
+            return self.currentAll
+        return None
+    
+    def get_current_lights(self):
+        light1 = None
+        light2 = None
+        if self.rx_refresh_flags & SPI_RX_CUR_LIGHT1x_FLAG:
+            self.rx_refresh_flags &= ~(SPI_RX_CUR_LIGHT1x_FLAG)
+            light1 =  self.cirrentLight1
+            
+        if self.rx_refresh_flags & SPI_RX_CUR_LIGHT2x_FLAG:
+            self.rx_refresh_flags &= ~(SPI_RX_CUR_LIGHT2x_FLAG)
+            light2 =  self.cirrentLight2
+        
+        if light1 is not None or light2 is not None:
+            return [light1, light2]            
+        return None
+    
+    def get_voltage(self):
+        if self.rx_refresh_flags & SPI_RX_VOLTS24x_FLAG:
+            self.rx_refresh_flags &= ~(SPI_RX_VOLTS24x_FLAG)
+            return self.voltage24
         return None
 
     def close(self):
         self.pi.spi_close(self.spi_handle)
         self.pi.stop()
-
-#bridge = SPI_Xfer_Container(0, 500000, 0)
-
-#while True:
-#    bridge.set_mot_servo(0, 12.0)
-#    bridge.set_mot_servo(4, 100.0)
-#    bridge.set_mot_servo(7, -52.0)
-#
-#    try:
-#        # Transfer data over SPI
-#        bridge.transfer()
-#        # print(", ".join(hex(b) for b in bridge.tx_buffer))
-#        print("q1 = ", bridge.get_man_q(0))
-#        print("q2 = ", bridge.get_man_q(1))
-#        print("q3 = ", bridge.get_man_q(2))
-#        # Delay
-#        time.sleep(1)
-#
-#    except:
-#        bridge.close()
-#        break
 

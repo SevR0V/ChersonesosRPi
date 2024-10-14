@@ -127,3 +127,6 @@ class YFrameControlSystem:
     
     def getAxisValue(self, controlAxis: ControlAxes):
         return self.__axesValues[controlAxis]
+    
+    def getAxesValues(self):
+        return self.__axesValues
