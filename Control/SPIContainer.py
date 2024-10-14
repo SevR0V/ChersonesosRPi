@@ -4,24 +4,28 @@ import time
 from enum import IntEnum
 
 # TX_BUFFER: [ MAGIC_START | MOT_SERVO | MAN_Q | ... | MAGIC_END ]
-# TX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | MOTORS (6x4)(24) | CAM_ANGLE (1x4)(4) | ... | MAGIC_END (1x1)(1) ]
-# RX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | EULER (3x4)(12) | CUR_ALL (1x4)(4) | CUR_LIGHT (1x4)(4) | VOLTS24 (1x4)(4) | ... | MAGIC_END (1x1)(1) ]
+# TX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | LIGHT (2x4)(8) | MOTORS (6x4)(24) | CAM_ANGLE (1x4)(4) | ... | MAGIC_END (1x1)(1) ]
+# RX bytes: [MAGIC_START (1x1)(1) | FLAGS (8x1)(8) | EULER (3x4)(12) | EULER_ACC (3x4)(12) | EULER_MAG (3x4)(12) | CUR_ALL (2x4)(4) | CUR_LIGHT1 (1x4)(4) | CUR_LIGHT2 (1x4)(4) | VOLTS24 (1x4)(4) | ... | MAGIC_END (1x1)(1) ]
 
 
 # class RxBufferOffsets(IntEnum):
 #     MAGIC_START = 0
 #     FLAGS = 1
 #     EULER = 9
-#     CUR_ALL = 21
-#     CUR_LIGHT = 25
-#     VOLTS24 = 29
+#     EULER_ACC = 21
+#     EULER_MAG = 33
+#     CUR_ALL = 45
+#     CUR_LIGHT1 = 49
+#     CUR_LIGHT1 = 53
+#     VOLTS24 = 57
 #     MAGIC_END = 199
 
 # class TxBufferOffsets(IntEnum):
 #     MAGIC_START = 0
 #     FLAGS = 1
-#     MOTORS = 9
-#     CAM_ANGLE = 33    
+#     LIGHT = 9
+#     MOTORS = 17
+#     CAM_ANGLE = 41    
 #     MAGIC_END = 199
 
 class RxBufferOffsets(IntEnum):
@@ -41,16 +45,17 @@ class TxBufferOffsets(IntEnum):
 SPI_RX_MAN_Qx_FLAG = lambda x: np.uint64(1 << x)
 
 SPI_RX_EULERx_FLAG = lambda x: np.uint64(1 << x)
-SPI_RX_CUR_ALLx_FLAG = lambda x: np.uint64(1 << (3 + x))
-SPI_RX_CUR_LIGHTx_FLAG = lambda x: np.uint64(1 << (4 + x))
-SPI_RX_VOLTS24x_FLAG = lambda x: np.uint64(1 << (5 + x))
+SPI_RX_CUR_ALLx_FLAG = lambda x: np.uint64(1 << (1 + x))
+SPI_RX_CUR_LIGHTx_FLAG = lambda x: np.uint64(1 << (2 + x))
+SPI_RX_VOLTS24x_FLAG = lambda x: np.uint64(1 << (3 + x))
 
 
 SPI_TX_DES_MOT_SERVOx_FLAG = lambda x: np.uint64(1 << x)
-SPI_TX_DES_MAN_Qx_FLAG = lambda x: np.uint64(1 << (8 + x))
+SPI_TX_DES_MAN_Qx_FLAG = lambda x: np.uint64(1 << (1 + x))
 
 SPI_TX_DES_MOTORSx_FLAG = lambda x: np.uint64(1 << x)
-SPI_TX_DES_CAM_ANGLEx_FLAG = lambda x: np.uint64(1 << (6 + x))
+SPI_TX_DES_LIGHT_STATEx_FLAG = lambda x: np.uint64(1 << (1 + x))
+SPI_TX_DES_CAM_ANGLEx_FLAG = lambda x: np.uint64(1 << (2 + x))
 
 
 class SPI_Xfer_Container:

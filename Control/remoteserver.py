@@ -127,16 +127,22 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.bridge.set_mot_servo(0, 12.0)
         self.bridge.set_mot_servo(4, 100.0)
         self.bridge.set_mot_servo(7, -52.0)
+        q1, q2, q3 = (0,0,0)
         try:
             # Transfer data over SPI
             self.bridge.transfer()
             #print(", ".join(hex(b) for b in self.bridge.tx_buffer))
-            print("q1 = ", self.bridge.get_man_q(0))
-            print("q2 = ", self.bridge.get_man_q(1))
-            print("q3 = ", self.bridge.get_man_q(2))
+            q1 = self.bridge.get_man_q(0)[0]
+            q2 = self.bridge.get_man_q(1)[0]
+            #q3 = self.bridge.get_man_q(2)[0]
+            q3: float = 0
+            print("q1 = ", q1)
+            print("q2 = ", q2)
+            print("q3 = ", q3)
         except:
             print("SPI TRANSFER FAILURE")
 
+        depth = 0.0
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
                 depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
@@ -148,11 +154,18 @@ class RemoteUdpDataServer(asyncio.Protocol):
         #hfl, hfr, hr, vfl, vfr, vr   = self.controlSystem.getMotsControls()
         #print("HFL: ", hfl, "HFR: ", hfr, "HR: ", hr, "VFL: ", vfl, "VFR: ", vfr, "VR:", vr)
 
-        roll, pitch, yaw = 0
+        roll = 0.0 if q1 is None else q1
+        pitch = 0.0 if q2 is None else q2
+        yaw:float = 0.0 if q3 is None else q3
+        # print("ROLL: ",type(roll))
+        # print("pitch: ",type(pitch))
+        # print("yaw: ",type(yaw))
+        # print("z: ",type(0.0))
+        # print("z: ",type(0.0))
 
 
         if self.remoteAddres:
-            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, 0, depth, self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
+            telemetry_data = struct.pack('=fffffff', roll, pitch, yaw, 0.0, depth, self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
             self.transport.sendto(telemetry_data, self.remoteAddres)
 
     def shutdown(self):       

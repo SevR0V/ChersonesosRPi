@@ -1,7 +1,7 @@
 import asyncio
 import time
 import pigpio
-from Control.remoteserver import RemoteUdpDataServer
+from remoteserver import RemoteUdpDataServer
 from SPIContainer import SPI_Xfer_Container
 from asynctimer import AsyncTimer
 from yframecontrolsystem import YFrameControlSystem
