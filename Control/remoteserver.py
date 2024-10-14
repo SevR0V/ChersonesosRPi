@@ -99,11 +99,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.controlSystem.setdt(self.timer.getInterval())
         self.controlSystem.updateControl()
 
-    def dataCalculationTransfer(self):
-        # self.bridge.set_mot_servo(0, 12.0)
-        # self.bridge.set_mot_servo(4, 100.0)
-        # self.bridge.set_mot_servo(7, -52.0)
-        
+    def dataCalculationTransfer(self):        
         self.controlSystem.updateControl()
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
@@ -118,26 +114,37 @@ class RemoteUdpDataServer(asyncio.Protocol):
             # Transfer data over SPI
             self.bridge.transfer()
         except:
-            print("SPI TRANSFER FAILURE")
-        
+            print("SPI TRANSFER FAILURE")        
         eulers = self.bridge.get_IMU_angles()
         if eulers is not None:
-            self.eulers = eulers            
+            self.eulers = eulers 
+        else:
+            print("Gyro data read error")           
         voltage = self.bridge.get_voltage()
         if voltage is not None:
             self.voltage = voltage
+        else:
+            print("Voltage read error") 
         currAll = self.bridge.get_current_all()
         if currAll is not None:
             self.curAll = currAll
+        else:
+            print("Current read error") 
         curLights = self.bridge.get_current_lights()
         if curLights is not None:
             self.curLights = curLights
+        else:
+            print("Lights current read error")
         acc = self.bridge.get_IMU_accelerometer()
         if acc is not None:
             self.accelerations = acc
+        else:
+            print("Accelerations read error")
         mag = self.bridge.get_IMU_magnetometer()
         if mag is not None:
             self.eulerMag = mag
+        else:
+            print("Magnetometer date read error")
         self.controlSystem.setAxesValues([0, 0, self.depth, self.eulers[0], self.eulers[1], self.eulers[2]])
 
         if self.remoteAddres:
