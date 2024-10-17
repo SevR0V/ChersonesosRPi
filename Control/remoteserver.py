@@ -22,25 +22,26 @@ UDP_FLAGS_RESET_IMUx = np.uint64(1 << 7)
 UDP_FLAGS_UPDATE_PIDx = np.uint64(1 << 8)
 
 class UDPRxValues(IntEnum):
-    FORWARDx = 1
-    STRAFEx = 2
-    VERTICALx = 3
-    ROTATIONx = 4
-    ROLL_INCx = 5
-    PITCH_INCx = 6
-    POWER_TARGETx = 7
-    CAM_ROTATEx = 8
-    MAN_GRIPx = 9
-    MAN_ROTATEx = 10
-    ROLL_KPx = 11
-    ROLL_KIx = 12
-    ROLL_KDx = 13
-    PITCH_KPx = 14
-    PITCH_KIx = 15
-    PITCH_KDx = 16
-    YAW_KPx = 17
-    YAW_KIx = 18
-    YAW_KDx = 19
+    FLAGS = 0
+    FORWARD = 1
+    STRAFE = 2
+    VERTICAL = 3
+    ROTATION = 4
+    ROLL_INC = 5
+    PITCH_INC = 6
+    POWER_TARGET = 7
+    CAM_ROTATE = 8
+    MAN_GRIP = 9
+    MAN_ROTATE = 10
+    ROLL_KP = 11
+    ROLL_KI = 12
+    ROLL_KD = 13
+    PITCH_KP = 14
+    PITCH_KI = 15
+    PITCH_KD = 16
+    YAW_KP = 17
+    YAW_KI = 18
+    YAW_KD = 19
     DEPTH_KP = 20
     DEPTH_KI = 21
     DEPTH_KD = 22
@@ -147,41 +148,41 @@ class RemoteUdpDataServer(asyncio.Protocol):
             # controlFlags, forward, strafe, vertical, rotation, rollInc, pitchInc, powerTarget, cameraRotate, manipulatorGrip, manipulatorRotate, rollKp, rollKi, rollKd, pitchKp, pitchKi, pitchKd, yawKp, yawKi, yawKd, depthKp, depthKi, depthKd
             # flags = MASTER, lightState, stabRoll, stabPitch, stabYaw, stabDepth, resetPosition, resetIMU, updatePID
             received = struct.unpack_from("=Qfffffffffffffffffff", packet)
-            self.MASTER = received[1] & UDP_FLAGS_MASTERx
-            self.lightState = received[1] & UDP_FLAGS_LIGHT_STATEx
-            rollStab =  received[1] & UDP_FLAGS_STAB_ROLLx
-            pitchStab = received[1] & UDP_FLAGS_STAB_PITCHx
-            yawStab =   received[1] & UDP_FLAGS_STAB_YAWx
-            depthStab = received[1] & UDP_FLAGS_STAB_DEPTHx
-            resetPosition = received[1] & UDP_FLAGS_RESET_POSITIONx
-            resetIMU = received[1] & UDP_FLAGS_RESET_IMUx
-            updatePID = received[1] & UDP_FLAGS_UPDATE_PIDx
+            self.MASTER = received[UDPRxValues.FLAGS] & UDP_FLAGS_MASTERx
+            self.lightState = received[UDPRxValues.FLAGS] & UDP_FLAGS_LIGHT_STATEx
+            rollStab =  received[UDPRxValues.FLAGS] & UDP_FLAGS_STAB_ROLLx
+            pitchStab = received[UDPRxValues.FLAGS] & UDP_FLAGS_STAB_PITCHx
+            yawStab =   received[UDPRxValues.FLAGS] & UDP_FLAGS_STAB_YAWx
+            depthStab = received[UDPRxValues.FLAGS] & UDP_FLAGS_STAB_DEPTHx
+            resetPosition = received[UDPRxValues.FLAGS] & UDP_FLAGS_RESET_POSITIONx
+            resetIMU = received[UDPRxValues.FLAGS] & UDP_FLAGS_RESET_IMUx
+            updatePID = received[UDPRxValues.FLAGS] & UDP_FLAGS_UPDATE_PIDx
             
             self.controlSystem.setStabilization(self.controlSystem.ControlAxes.ROLL, rollStab)
             self.controlSystem.setStabilization(self.controlSystem.ControlAxes.PITCH, pitchStab)
             self.controlSystem.setStabilization(self.controlSystem.ControlAxes.YAW, yawStab)
             self.controlSystem.setStabilization(self.controlSystem.ControlAxes.DEPTH, depthStab) 
             
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[UDPRxValues.FORWARDx] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[UDPRxValues.STRAFEx] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[UDPRxValues.VERTICALx] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[UDPRxValues.ROTATIONx] * 100) 
-            rollInc = int(received[UDPRxValues.ROLL_INCx])
-            pitchInc = int(received[UDPRxValues.ROLL_INCx])
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[UDPRxValues.FORWARD] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[UDPRxValues.STRAFE] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[UDPRxValues.VERTICAL] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[UDPRxValues.ROTATION] * 100) 
+            rollInc = received[UDPRxValues.ROLL_INC]
+            pitchInc = received[UDPRxValues.ROLL_INC]
             if rollInc:
                 rollSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL) + rollInc * self.incrementScale
                 self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, rollSP)
             if pitchInc:
                 pitchSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH) + pitchInc * self.incrementScale
                 self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, pitchSP)
-            self.powerTarget = received[UDPRxValues.POWER_TARGETx]
-            self.cameraRotate = received[UDPRxValues.CAM_ROTATEx]            
+            self.powerTarget = received[UDPRxValues.POWER_TARGET]
+            self.cameraRotate = received[UDPRxValues.CAM_ROTATE]            
             self.cameraAngle += self.cameraRotate * self.incrementScale
             
             if updatePID:
-                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.ROLL, [received[UDPRxValues.ROLL_KPx], received[UDPRxValues.ROLL_KIx], received[UDPRxValues.ROLL_KDx]])
-                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.PITCH, [received[UDPRxValues.PITCH_KPx], received[UDPRxValues.PITCH_KIx], received[UDPRxValues.PITCH_KDx]])
-                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.YAW, [received[UDPRxValues.YAW_KPx], received[UDPRxValues.YAW_KIx], received[UDPRxValues.YAW_KDx]])
+                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.ROLL, [received[UDPRxValues.ROLL_KP], received[UDPRxValues.ROLL_KI], received[UDPRxValues.ROLL_KD]])
+                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.PITCH, [received[UDPRxValues.PITCH_KP], received[UDPRxValues.PITCH_KI], received[UDPRxValues.PITCH_KD]])
+                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.YAW, [received[UDPRxValues.YAW_KP], received[UDPRxValues.YAW_KI], received[UDPRxValues.YAW_KD]])
                 self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.DEPTH, [received[UDPRxValues.DEPTH_KP], received[UDPRxValues.DEPTH_KI], received[UDPRxValues.DEPTH_KD]])
             
             if resetPosition:
