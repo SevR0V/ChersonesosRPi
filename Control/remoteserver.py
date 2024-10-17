@@ -3,13 +3,50 @@ import struct
 import math
 import time
 import ms5837
+import numpy as np
+from enum import IntEnum
 from SPIContainer import SPI_Xfer_Container
 from yframecontrolsystem import YFrameControlSystem
+from asynctimer import AsyncTimer
 
 to_rad = math.pi / 180
 
+UDP_FLAGS_MASTERx = np.uint64(1 << 0)
+UDP_FLAGS_LIGHT_STATEx = np.uint64(1 << 1)
+UDP_FLAGS_STAB_ROLLx = np.uint64(1 << 2)
+UDP_FLAGS_STAB_PITCHx = np.uint64(1 << 3)
+UDP_FLAGS_STAB_YAWx = np.uint64(1 << 4)
+UDP_FLAGS_STAB_DEPTHx = np.uint64(1 << 5)
+UDP_FLAGS_RESET_POSITIONx = np.uint64(1 << 6)
+UDP_FLAGS_RESET_IMUx = np.uint64(1 << 7)
+UDP_FLAGS_UPDATE_PIDx = np.uint64(1 << 8)
+
+class UDPRxValues(IntEnum):
+    FORWARDx = 1
+    STRAFEx = 2
+    VERTICALx = 3
+    ROTATIONx = 4
+    ROLL_INCx = 5
+    PITCH_INCx = 6
+    POWER_TARGETx = 7
+    CAM_ROTATEx = 8
+    MAN_GRIPx = 9
+    MAN_ROTATEx = 10
+    ROLL_KPx = 11
+    ROLL_KIx = 12
+    ROLL_KDx = 13
+    PITCH_KPx = 14
+    PITCH_KIx = 15
+    PITCH_KDx = 16
+    YAW_KPx = 17
+    YAW_KIx = 18
+    YAW_KDx = 19
+    DEPTH_KP = 20
+    DEPTH_KI = 21
+    DEPTH_KD = 22
+
 class RemoteUdpDataServer(asyncio.Protocol):
-    def __init__(self, contolSystem: YFrameControlSystem, timer, bridge: SPI_Xfer_Container, thrustersDirCorr):
+    def __init__(self, contolSystem: YFrameControlSystem, timer: AsyncTimer, bridge: SPI_Xfer_Container, thrustersDirCorr):
         self.timer = timer
         self.bridge = bridge
         self.remoteAddres = None
@@ -27,8 +64,16 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.curAll = 0
         self.curLights = [0.0, 0.0]
         self.depth = 0
-        
+        self.MASTER = False
+        self.IMUErrors = [0.0, 0.0, 0.0]
+        self.incrementScale = 0.5
+        self.batCharge = 0
         self.thrustersDirCorr = thrustersDirCorr
+        self.ERRORFLAGS = np.uint64(0)
+        
+        self.newRxPacket = False
+        self.newTxPacket = False
+        
         try:
             self.depth_sensor = ms5837.MS5837(model=ms5837.MODEL_30BA, bus=1)
             self.depth_sensor.init()
@@ -54,48 +99,103 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if not self.remoteAddres:
             return
         
-        #fx, fy, vertical_thrust, powertarget, rotation_velocity, manipulator_grip, manipulator_rotate, camera_rotate, reset, light_state, stabilization, RollInc, PitchInc, ResetPosition.
-        received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
-
-        self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[0] * 100)
-        self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[1] * 100)
-        self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[2] * 100)
-        self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[4] * 100) 
-
-        self.powerTarget = received[3]
-        self.cameraRotate = received[7]
-        self.cameraAngle += self.cameraRotate * self.timer.getInterval() * 250
-        self.lightState = received[9]
-
-        rollStab =  1 if received[10] & 0b00000001 else 0
-        pitchStab = 1 if received[10] & 0b00000010 else 0
-        yawStab =   1 if received[10] & 0b00000100 else 0
-        depthStab = 1 if received[10] & 0b00001000 else 0
-
-        self.controlSystem.setStabilization(self.controlSystem.ControlAxes.ROLL, rollStab)
-        self.controlSystem.setStabilization(self.controlSystem.ControlAxes.PITCH, pitchStab)
-        self.controlSystem.setStabilization(self.controlSystem.ControlAxes.YAW, yawStab)
-        self.controlSystem.setStabilization(self.controlSystem.ControlAxes.DEPTH, depthStab)
         
-        if received[11]: 
-            rollSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL) + received[11] * self.timer.getInterval() * 250
-            self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, rollSP)
-        if received[12]: 
-            pitchSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH) + received[12] * self.timer.getInterval() * 250
-            self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, pitchSP)
-        
-        if(received[13]):
-            self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, 0)
-            self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, 0)
-            self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.YAW, self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW))
-            self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.DEPTH, self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.DEPTH))
-            self.controlSystem.setStabilizations([0,0,0,0,0,0])
+        if not self.newRxPacket:            
+            #fx, fy, vertical_thrust, powertarget, rotation_velocity, manipulator_grip, manipulator_rotate, camera_rotate, reset, light_state, stabilization, RollInc, PitchInc, ResetPosition.
+            received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
             
-        if(received[26]):
-                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.ROLL, [received[14], received[15], received[16]])
-                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.PITCH, [received[17], received[18], received[19]])
-                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.YAW, [received[20], received[21], received[22]])
-                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.DEPTH, [received[23], received[24], received[25]])           
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[0] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[1] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[2] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[4] * 100) 
+
+            self.powerTarget = received[3]
+            self.cameraRotate = received[7]
+            self.cameraAngle += self.cameraRotate * self.incrementScale
+            self.lightState = received[9]
+
+            rollStab =  1 if received[10] & 0b00000001 else 0
+            pitchStab = 1 if received[10] & 0b00000010 else 0
+            yawStab =   1 if received[10] & 0b00000100 else 0
+            depthStab = 1 if received[10] & 0b00001000 else 0
+
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.ROLL, rollStab)
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.PITCH, pitchStab)
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.YAW, yawStab)
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.DEPTH, depthStab)
+            
+            if received[11]: 
+                rollSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL) + received[11] * self.incrementScale
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, rollSP)
+            if received[12]: 
+                pitchSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH) + received[12] * self.incrementScale
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, pitchSP)
+            
+            if(received[13]):
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, 0)
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, 0)
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.YAW, self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW))
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.DEPTH, self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.DEPTH))
+                self.controlSystem.setStabilizations([0,0,0,0,0,0])
+                
+            if(received[26]):
+                    self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.ROLL, [received[14], received[15], received[16]])
+                    self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.PITCH, [received[17], received[18], received[19]])
+                    self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.YAW, [received[20], received[21], received[22]])
+                    self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.DEPTH, [received[23], received[24], received[25]])
+        else:
+            # controlFlags, forward, strafe, vertical, rotation, rollInc, pitchInc, powerTarget, cameraRotate, manipulatorGrip, manipulatorRotate, rollKp, rollKi, rollKd, pitchKp, pitchKi, pitchKd, yawKp, yawKi, yawKd, depthKp, depthKi, depthKd
+            # flags = MASTER, lightState, stabRoll, stabPitch, stabYaw, stabDepth, resetPosition, resetIMU, updatePID
+            received = struct.unpack_from("=Qfffffffffffffffffff", packet)
+            self.MASTER = received[1] & UDP_FLAGS_MASTERx
+            self.lightState = received[1] & UDP_FLAGS_LIGHT_STATEx
+            rollStab =  received[1] & UDP_FLAGS_STAB_ROLLx
+            pitchStab = received[1] & UDP_FLAGS_STAB_PITCHx
+            yawStab =   received[1] & UDP_FLAGS_STAB_YAWx
+            depthStab = received[1] & UDP_FLAGS_STAB_DEPTHx
+            resetPosition = received[1] & UDP_FLAGS_RESET_POSITIONx
+            resetIMU = received[1] & UDP_FLAGS_RESET_IMUx
+            updatePID = received[1] & UDP_FLAGS_UPDATE_PIDx
+            
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.ROLL, rollStab)
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.PITCH, pitchStab)
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.YAW, yawStab)
+            self.controlSystem.setStabilization(self.controlSystem.ControlAxes.DEPTH, depthStab) 
+            
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[UDPRxValues.FORWARDx] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[UDPRxValues.STRAFEx] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[UDPRxValues.VERTICALx] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[UDPRxValues.ROTATIONx] * 100) 
+            rollInc = int(received[UDPRxValues.ROLL_INCx])
+            pitchInc = int(received[UDPRxValues.ROLL_INCx])
+            if rollInc:
+                rollSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL) + rollInc * self.incrementScale
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, rollSP)
+            if pitchInc:
+                pitchSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH) + pitchInc * self.incrementScale
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, pitchSP)
+            self.powerTarget = received[UDPRxValues.POWER_TARGETx]
+            self.cameraRotate = received[UDPRxValues.CAM_ROTATEx]            
+            self.cameraAngle += self.cameraRotate * self.incrementScale
+            
+            if updatePID:
+                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.ROLL, [received[UDPRxValues.ROLL_KPx], received[UDPRxValues.ROLL_KIx], received[UDPRxValues.ROLL_KDx]])
+                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.PITCH, [received[UDPRxValues.PITCH_KPx], received[UDPRxValues.PITCH_KIx], received[UDPRxValues.PITCH_KDx]])
+                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.YAW, [received[UDPRxValues.YAW_KPx], received[UDPRxValues.YAW_KIx], received[UDPRxValues.YAW_KDx]])
+                self.controlSystem.setPIDConstants(self.controlSystem.ControlAxes.DEPTH, [received[UDPRxValues.DEPTH_KP], received[UDPRxValues.DEPTH_KI], received[UDPRxValues.DEPTH_KD]])
+            
+            if resetPosition:
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, 0)
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, 0)
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.YAW, self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW))
+                self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.DEPTH, self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.DEPTH))
+                self.controlSystem.setStabilizations([0,0,0,0,0,0])
+            
+            if resetIMU:
+                self.IMUErrors = [self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.ROLL),
+                                  self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.PITCH),
+                                  self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW)]
+                       
         self.controlSystem.setdt(self.timer.getInterval())
         self.controlSystem.updateControl()
 
@@ -104,12 +204,12 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
                 self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
-            
-        self.bridge.set_cam_angle_value(self.cameraAngle)
-        lightsValues = [50*self.lightState, 50*self.lightState]
-        self.bridge.set_lights_values(lightsValues)
-        self.bridge.set_mots_values(self.controlSystem.getMotsControls())
-        self.bridge.set_cam_angle_value(self.cameraAngle)     
+        if self.MASTER:
+            self.bridge.set_cam_angle_value(self.cameraAngle)
+            lightsValues = [50*self.lightState, 50*self.lightState]
+            self.bridge.set_lights_values(lightsValues)
+            self.bridge.set_mots_values(self.controlSystem.getMotsControls())
+            self.bridge.set_cam_angle_value(self.cameraAngle)     
         try:
             # Transfer data over SPI
             self.bridge.transfer()
@@ -145,17 +245,39 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.eulerMag = mag
         else:
             print("Magnetometer date read error")
-        self.controlSystem.setAxesValues([0, 0, self.depth, self.eulers[0], self.eulers[1], self.eulers[2]])
+        self.controlSystem.setAxesValues([0, 0, 
+                                          self.depth, 
+                                          self.eulers[0] - self.IMUErrors[0], 
+                                          self.eulers[1] - self.IMUErrors[1], 
+                                          self.eulers[2] - self.IMUErrors[2]])
 
         if self.remoteAddres:
-            telemetry_data = struct.pack('=fffffff', self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.ROLL), 
-                                         self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.PITCH), 
-                                         self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW), 
-                                         0.0, 
-                                         self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.DEPTH), 
-                                         self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), 
-                                         self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
-            self.transport.sendto(telemetry_data, self.remoteAddres)
+            if not self.newTxPacket:
+                telemetry_data = struct.pack('=fffffff', self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.ROLL), 
+                                            self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.PITCH), 
+                                            self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW), 
+                                            0.0, 
+                                            self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.DEPTH), 
+                                            self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), 
+                                            self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
+                
+                self.transport.sendto(telemetry_data, self.remoteAddres)
+            else:
+                #ERRORFLAGS, roll, pitch, yaw, depth, batVoltage, batCharge, batCurrent, rollSP, pitchSP
+                telemetry_data = struct.pack('=Qfffffffff',
+                                            self.ERRORFLAGS,
+                                            self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.ROLL), 
+                                            self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.PITCH), 
+                                            self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW),
+                                            self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.DEPTH),
+                                            self.voltage,
+                                            self.batCharge,
+                                            self.curAll,
+                                            self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL), 
+                                            self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH))
+                
+                self.transport.sendto(telemetry_data, self.remoteAddres)
+                
 
     def shutdown(self):       
         self.bridge.close()  
