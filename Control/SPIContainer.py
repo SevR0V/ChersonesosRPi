@@ -29,16 +29,16 @@ class TxBufferOffsets(IntEnum):
 
 
 SPI_RX_EULERx_FLAG = np.uint64(1 << 0)
-SPI_RX_EULER_ACCx_FLAG = np.uint64(1 << (1))
-SPI_RX_EULER_MAGx_FLAG = np.uint64(1 << (2))
-SPI_RX_CUR_ALLx_FLAG = np.uint64(1 << (3))
-SPI_RX_CUR_LIGHT1x_FLAG = np.uint64(1 << (4))
-SPI_RX_CUR_LIGHT2x_FLAG = np.uint64(1 << (5))
-SPI_RX_VOLTS24x_FLAG = np.uint64(1 << (6))
+SPI_RX_EULER_ACCx_FLAG = np.uint64(1 << 1)
+SPI_RX_EULER_MAGx_FLAG = np.uint64(1 << 2)
+SPI_RX_CUR_ALLx_FLAG = np.uint64(1 << 3)
+SPI_RX_CUR_LIGHT1x_FLAG = np.uint64(1 << 4)
+SPI_RX_CUR_LIGHT2x_FLAG = np.uint64(1 << 5)
+SPI_RX_VOLTS24x_FLAG = np.uint64(1 << 6)
 
 SPI_TX_DES_MOTORSx_FLAG = np.uint64(1 << 0)
-SPI_TX_DES_LIGHTx_FLAG = np.uint64(1 << (1))
-SPI_TX_DES_CAM_ANGLEx_FLAG = np.uint64(1 << (2))
+SPI_TX_DES_LIGHTx_FLAG = np.uint64(1 << 1)
+SPI_TX_DES_CAM_ANGLEx_FLAG = np.uint64(1 << 2)
 
 baseRxPacket = "Qfffffffffffff"
 
