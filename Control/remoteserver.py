@@ -64,7 +64,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.curAll = 0
         self.curLights = [0.0, 0.0]
         self.depth = 0
-        self.MASTER = False
+        self.MASTER = True
         self.IMUErrors = [0.0, 0.0, 0.0]
         self.incrementScale = 0.5
         self.batCharge = 0
