@@ -46,6 +46,13 @@ class UDPRxValues(IntEnum):
     DEPTH_KI = 21
     DEPTH_KD = 22
 
+def motsDirCalibrate(mots: list, inv: list):
+    if not (len(mots) == len(inv)):
+        return None
+    motsC: list
+    for i in range(len(mots)):
+        motsC[i] = mots[i] * inv[i]
+    return motsC
 class RemoteUdpDataServer(asyncio.Protocol):
     def __init__(self, contolSystem: YFrameControlSystem, timer: AsyncTimer, bridge: SPI_Xfer_Container, thrustersDirCorr):
         self.timer = timer
@@ -99,7 +106,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
         
         if not self.remoteAddres:
             return
-        
         
         if not self.newRxPacket:            
             #fx, fy, vertical_thrust, powertarget, rotation_velocity, manipulator_grip, manipulator_rotate, camera_rotate, reset, light_state, stabilization, RollInc, PitchInc, ResetPosition.
@@ -209,7 +215,11 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
             self.bridge.set_lights_values(lightsValues)
-            self.bridge.set_mots_values(self.controlSystem.getMotsControls())
+            calibratedThrust = motsDirCalibrate(self.controlSystem.getMotsControls(), self.thrustersDirCorr)
+            if calibratedThrust is None:
+                calibratedThrust = self.controlSystem.getMotsControls()
+                print("Thrusters calibration failure")
+            self.bridge.set_mots_values(calibratedThrust)
             self.bridge.set_cam_angle_value(self.cameraAngle)     
         try:
             # Transfer data over SPI
