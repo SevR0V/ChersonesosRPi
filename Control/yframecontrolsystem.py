@@ -33,7 +33,7 @@ class YFrameControlSystem:
         PITCH       = 4    
         YAW         = 5
 
-    class Motors(IntEnum):
+    class Thrusters(IntEnum):
         # Y-frame specific
         H_FRONTLEFT     = 0
         H_FRONTRIGHT    = 1
@@ -60,14 +60,14 @@ class YFrameControlSystem:
         self.__PIDValues[self.ControlAxes.DEPTH] = constrain(depthPID, -100, 100)
 
     def __calculateHorizontalThrust(self):
-        self.__motsOutputs[self.Motors.H_FRONTLEFT] = self.__axesInputs[self.ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[self.ControlAxes.FORWARD] / 2 + 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
-        self.__motsOutputs[self.Motors.H_FRONTRIGHT] = - self.__axesInputs[self.ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[self.ControlAxes.FORWARD]  / 2 - 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
-        self.__motsOutputs[self.Motors.H_REAR] = - self.__axesInputs[self.ControlAxes.STRAFE] + 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
+        self.__motsOutputs[self.Thrusters.H_FRONTLEFT] = self.__axesInputs[self.ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[self.ControlAxes.FORWARD] / 2 + 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
+        self.__motsOutputs[self.Thrusters.H_FRONTRIGHT] = - self.__axesInputs[self.ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[self.ControlAxes.FORWARD]  / 2 - 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
+        self.__motsOutputs[self.Thrusters.H_REAR] = - self.__axesInputs[self.ControlAxes.STRAFE] + 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
         
     def __calculateVerticalThrust(self):
-        self.__motsOutputs[self.Motors.V_FRONTLEFT] = self.__PIDValues[self.ControlAxes.ROLL] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__PIDValues[self.ControlAxes.PITCH] + self.__axesInputs[self.ControlAxes.DEPTH]
-        self.__motsOutputs[self.Motors.V_FRONTRIGHT] = -self.__PIDValues[self.ControlAxes.ROLL] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__PIDValues[self.ControlAxes.PITCH] + self.__axesInputs[self.ControlAxes.DEPTH]
-        self.__motsOutputs[self.Motors.V_REAR] = -self.__PIDValues[self.ControlAxes.PITCH] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__axesInputs[self.ControlAxes.DEPTH]
+        self.__motsOutputs[self.Thrusters.V_FRONTLEFT] = self.__PIDValues[self.ControlAxes.ROLL] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__PIDValues[self.ControlAxes.PITCH] + self.__axesInputs[self.ControlAxes.DEPTH]
+        self.__motsOutputs[self.Thrusters.V_FRONTRIGHT] = -self.__PIDValues[self.ControlAxes.ROLL] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__PIDValues[self.ControlAxes.PITCH] + self.__axesInputs[self.ControlAxes.DEPTH]
+        self.__motsOutputs[self.Thrusters.V_REAR] = -self.__PIDValues[self.ControlAxes.PITCH] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__axesInputs[self.ControlAxes.DEPTH]
 
     def updateControl(self):
         self.__updatePID()
