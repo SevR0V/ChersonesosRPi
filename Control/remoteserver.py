@@ -188,15 +188,18 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[UDPRxValues.FORWARD] * 100)
             self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[UDPRxValues.STRAFE] * 100)
             self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[UDPRxValues.VERTICAL] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[UDPRxValues.ROTATION] * 100) 
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[UDPRxValues.ROTATION] * 100)
+
             rollInc = received[UDPRxValues.ROLL_INC]
             pitchInc = received[UDPRxValues.ROLL_INC]
+
             if rollInc:
                 rollSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.ROLL) + rollInc * self.incrementScale
                 self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.ROLL, rollSP)
             if pitchInc:
                 pitchSP = self.controlSystem.getPIDSetpoint(self.controlSystem.ControlAxes.PITCH) + pitchInc * self.incrementScale
                 self.controlSystem.setPIDSetpoint(self.controlSystem.ControlAxes.PITCH, pitchSP)
+                
             self.powerTarget = received[UDPRxValues.POWER_TARGET]
             self.cameraRotate = received[UDPRxValues.CAM_ROTATE]            
             self.cameraAngle += self.cameraRotate * self.incrementScale
@@ -225,12 +228,14 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
                 self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
+
         if self.MASTER:
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
             self.bridge.set_lights_values(lightsValues)            
             self.bridge.set_mots_values(self.controlSystem.getMotsControls())
-            self.bridge.set_cam_angle_value(self.cameraAngle)     
+            self.bridge.set_cam_angle_value(self.cameraAngle)
+
         try:
             # Transfer data over SPI
             self.bridge.transfer()

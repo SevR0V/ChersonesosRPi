@@ -17,13 +17,13 @@ SPISpeed = 500000
 SPIFlags = 0
 
 #init thrusters parameters
-thrustersDirCorr = [-1, -1, 1, 1, 1, -1]
 thrustersOrder = [YFrameControlSystem.Thrusters.H_FRONTLEFT, 
                   YFrameControlSystem.Thrusters.H_FRONTRIGHT,
                   YFrameControlSystem.Thrusters.H_REAR, 
                   YFrameControlSystem.Thrusters.V_FRONTLEFT,
                   YFrameControlSystem.Thrusters.V_FRONTRIGHT,
                   YFrameControlSystem.Thrusters.V_REAR]
+thrustersDirCorr = [-1, -1, 1, 1, 1, -1]
 trustersXValues = [-100, 100]
 
 #init control system
