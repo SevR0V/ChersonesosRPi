@@ -239,33 +239,33 @@ class RemoteUdpDataServer(asyncio.Protocol):
         eulers = self.bridge.get_IMU_angles()
         if eulers is not None:
             self.eulers = eulers 
-        else:
-            print("Gyro data read error")           
+        # else:
+        #     print("Gyro data read error")           
         voltage = self.bridge.get_voltage()
         if voltage is not None:
             self.voltage = voltage
-        else:
-            print("Voltage read error") 
+        # else:
+        #     print("Voltage read error") 
         currAll = self.bridge.get_current_all()
         if currAll is not None:
             self.curAll = currAll
-        else:
-            print("Current read error") 
+        # else:
+        #     print("Current read error") 
         curLights = self.bridge.get_current_lights()
         if curLights is not None:
             self.curLights = curLights
-        else:
-            print("Lights current read error")
+        # else:
+        #     print("Lights current read error")
         acc = self.bridge.get_IMU_accelerometer()
         if acc is not None:
             self.accelerations = acc
-        else:
-            print("Accelerations read error")
+        # else:
+        #     print("Accelerations read error")
         mag = self.bridge.get_IMU_magnetometer()
         if mag is not None:
             self.eulerMag = mag
-        else:
-            print("Magnetometer date read error")
+        # else:
+        #     print("Magnetometer date read error")
         self.controlSystem.setAxesValues([0, 0, 
                                           self.depth, 
                                           self.eulers[0] - self.IMUErrors[0], 
