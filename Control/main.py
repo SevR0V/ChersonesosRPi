@@ -16,28 +16,28 @@ SPIChannel = 0
 SPISpeed = 500000
 SPIFlags = 0
 
+#init thrusters parameters
+thrustersDirCorr = [-1, -1, 1, 1, 1, -1]
+thrustersOrder = [YFrameControlSystem.Thrusters.H_FRONTLEFT, 
+                  YFrameControlSystem.Thrusters.H_FRONTRIGHT,
+                  YFrameControlSystem.Thrusters.H_REAR, 
+                  YFrameControlSystem.Thrusters.V_FRONTLEFT,
+                  YFrameControlSystem.Thrusters.V_FRONTRIGHT,
+                  YFrameControlSystem.Thrusters.V_REAR]
+trustersXValues = [-100, 100]
+
 #init control system
-controlSystem = YFrameControlSystem()
+controlSystem = YFrameControlSystem(thrustersDirCorr, thrustersOrder, trustersXValues)
 
 #init timer parameters
 timerInterval = 1/500 #500 Hz timer interval
-
-#init thrusters parameters
-thrustersDirCorr = [-1, -1, 1, 1, 1, -1]
-thrustersOrder = [controlSystem.Thrusters.H_FRONTLEFT, 
-                  controlSystem.Thrusters.H_FRONTRIGHT,
-                  controlSystem.Thrusters.H_REAR, 
-                  controlSystem.Thrusters.V_FRONTLEFT,
-                  controlSystem.Thrusters.V_FRONTRIGHT,
-                  controlSystem.Thrusters.V_REAR]
-trustersXValues = [-100, 100]
 
 #init devices
 timer = timer = AsyncTimer(timerInterval, loop)
 bridge = SPI_Xfer_Container(pi, SPIChannel, SPISpeed, SPIFlags)
 
 #init main server
-udp_server = RemoteUdpDataServer(controlSystem, timer, bridge, thrustersDirCorr, thrustersOrder, trustersXValues)
+udp_server = RemoteUdpDataServer(controlSystem, timer, bridge)
 
 #create tasks
 udp_server_task = loop.create_datagram_endpoint(lambda: udp_server, local_addr=('0.0.0.0', 1337))

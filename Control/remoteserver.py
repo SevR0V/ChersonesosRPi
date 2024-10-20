@@ -71,7 +71,7 @@ def thrustersReMap(thrusters, valueRange):
         
 
 class RemoteUdpDataServer(asyncio.Protocol):
-    def __init__(self, contolSystem: YFrameControlSystem, timer: AsyncTimer, bridge: SPI_Xfer_Container, thrustersDirCorr, thrustersOrder, trustersXValues):
+    def __init__(self, contolSystem: YFrameControlSystem, timer: AsyncTimer, bridge: SPI_Xfer_Container):
         self.timer = timer
         self.bridge = bridge
         self.remoteAddres = None
@@ -93,10 +93,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.IMUErrors = [0.0, 0.0, 0.0]
         self.incrementScale = 0.5
         self.batCharge = 0
-        self.thrustersDirCorr = thrustersDirCorr
         self.ERRORFLAGS = np.uint64(0)
-        self.thrustersOrder = thrustersOrder
-        self.trustersXValues = trustersXValues
         
         self.newRxPacket = False
         self.newTxPacket = False
@@ -223,29 +220,16 @@ class RemoteUdpDataServer(asyncio.Protocol):
                                   self.controlSystem.getAxisValue(self.controlSystem.ControlAxes.YAW)]
                        
         self.controlSystem.setdt(self.timer.getInterval())
-        self.controlSystem.updateControl()
 
-    def dataCalculationTransfer(self):        
-        self.controlSystem.updateControl()
+    def dataCalculationTransfer(self):
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
                 self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
         if self.MASTER:
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
-            self.bridge.set_lights_values(lightsValues)
-            
-            calibratedThrust = thrustersDirCalibrate(self.controlSystem.getMotsControls(), self.thrustersDirCorr)
-            if calibratedThrust is None:
-                calibratedThrust = self.controlSystem.getMotsControls()
-                print("Thrusters calibration failure")
-            reOrderedCThrust = thrustersReorder(calibratedThrust, self.thrustersOrder)
-            if reOrderedCThrust is None:
-                reOrderedCThrust = calibratedThrust
-                print("Thrusters reordering failure")
-            reMappedRoCThrust = thrustersReMap(reOrderedCThrust, self.trustersXValues)
-            
-            self.bridge.set_mots_values(reMappedRoCThrust)
+            self.bridge.set_lights_values(lightsValues)            
+            self.bridge.set_mots_values(self.controlSystem.getMotsControls())
             self.bridge.set_cam_angle_value(self.cameraAngle)     
         try:
             # Transfer data over SPI
