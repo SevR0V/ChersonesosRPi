@@ -23,7 +23,7 @@ thrustersOrder = [YFrameControlSystem.Thrusters.H_FRONTLEFT,
                   YFrameControlSystem.Thrusters.V_FRONTLEFT,
                   YFrameControlSystem.Thrusters.V_FRONTRIGHT,
                   YFrameControlSystem.Thrusters.V_REAR]
-thrustersDirCorr = [-1, -1, 1, 1, 1, -1]
+thrustersDirCorr = [1, 1, 1, 1, 1, 1]
 trustersXValues = [-100, 100]
 
 #init control system
