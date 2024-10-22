@@ -84,6 +84,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.lightState = 0
         self.eulers = [0.0, 0.0, 0.0]
         self.accelerations = [0.0, 0.0, 0.0]
+        self.IMURaw = [0.0, 0.0, 0.0]
         self.eulerMag = [0.0, 0.0, 0.0]
         self.voltage = 0
         self.curAll = 0
@@ -266,6 +267,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.accelerations = acc
         # else:
         #     print("Accelerations read error")
+        imuRaw = self.bridge.get_IMU_raw()
+        if imuRaw is not None:
+            self.IMURaw = imuRaw
         mag = self.bridge.get_IMU_magnetometer()
         if mag is not None:
             self.eulerMag = mag
