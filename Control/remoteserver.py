@@ -282,7 +282,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                                           self.eulers[0] - self.IMUErrors[0], 
                                           self.eulers[1] - self.IMUErrors[1], 
                                           self.eulers[2] - self.IMUErrors[2]])
-        print(self.controlSystem.getMotsControls)
+        print(self.controlSystem.getMotsControls())
         if self.remoteAddres:
             if not self.newTxPacket:
                 telemetry_data = struct.pack('=fffffff', self.controlSystem.getAxisValue(ControlAxes.ROLL), 
