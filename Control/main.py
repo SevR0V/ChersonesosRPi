@@ -28,7 +28,7 @@ thrustersDirCorr = [1, 1, 1, 1, 1, 1]
 trustersXValues = [-100, 100]
 
 #init control system
-controlSystem = YFrameControlSystem(thrustersDirCorr)
+controlSystem = YFrameControlSystem()
 controlSystem.set_thrusters_calibration_values(thrustersOrder, trustersXValues, 2)
 
 #init timer parameters
