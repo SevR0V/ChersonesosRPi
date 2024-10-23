@@ -117,6 +117,8 @@ class YFrameControlSystem:
                 self.__motsOutputsReal[i] = 0
             if self.__motsOutputsSetpoint[i] == 0:
                 self.__motsOutputsReal[i] = 0
+            if abs(abs(self.__motsOutputsReal[i]) - abs(self.__motsOutputsSetpoint[i])) < self.__thrusterIncrement:
+                self.__motsOutputsReal[i] = self.__motsOutputsSetpoint[i]
     
     # Setters
     def setPIDConstants(self, controlAxis: ControlAxes, constants):
