@@ -29,18 +29,18 @@ class TxBufferOffsets(IntEnum):
     MAGIC_END = 199
 
 
-SPI_RX_EULERx_FLAG = np.uint64(1 << 0)
-SPI_RX_EULER_ACCx_FLAG = np.uint64(1 << 1)
-SPI_RX_EULER_RAWx_FLAG = np.uint64(1 << 2)
-SPI_RX_EULER_MAGx_FLAG = np.uint64(1 << 3)
-SPI_RX_CUR_ALLx_FLAG = np.uint64(1 << 4)
-SPI_RX_CUR_LIGHT1x_FLAG = np.uint64(1 << 5)
-SPI_RX_CUR_LIGHT2x_FLAG = np.uint64(1 << 6)
-SPI_RX_VOLTS24x_FLAG = np.uint64(1 << 7)
+SPI_RX_EULERx_FLAG =        np.uint64(1 << 0)
+SPI_RX_EULER_ACCx_FLAG =    np.uint64(1 << 1)
+SPI_RX_EULER_RAWx_FLAG =    np.uint64(1 << 2)
+SPI_RX_EULER_MAGx_FLAG =    np.uint64(1 << 3)
+SPI_RX_CUR_ALLx_FLAG =      np.uint64(1 << 4)
+SPI_RX_CUR_LIGHT1x_FLAG =   np.uint64(1 << 5)
+SPI_RX_CUR_LIGHT2x_FLAG =   np.uint64(1 << 6)
+SPI_RX_VOLTS24x_FLAG =      np.uint64(1 << 7)
 
-SPI_TX_DES_MOTORSx_FLAG = np.uint64(1 << 0)
-SPI_TX_DES_LIGHTx_FLAG = np.uint64(1 << 1)
-SPI_TX_DES_CAM_ANGLEx_FLAG = np.uint64(1 << 2)
+SPI_TX_DES_MOTORSx_FLAG =       np.uint64(1 << 0)
+SPI_TX_DES_LIGHTx_FLAG =        np.uint64(1 << 1)
+SPI_TX_DES_CAM_ANGLEx_FLAG =    np.uint64(1 << 2)
 
 baseRxPacket = "Qffffffffffffffff"
 
@@ -81,7 +81,7 @@ class SPI_Xfer_Container:
         self.des_cam_angle = 0.0
 
         # RX
-        self.euler = [0.0, 0.0, 0.0]
+        self.euler =    [0.0, 0.0, 0.0]
         self.eulerAcc = [0.0, 0.0, 0.0]
         self.eulerRaw = [0.0, 0.0, 0.0]
         self.eulerMag = [0.0, 0.0, 0.0]
@@ -208,4 +208,3 @@ class SPI_Xfer_Container:
     def close(self):
         self.pi.spi_close(self.spi_handle)
         self.pi.stop()
-
