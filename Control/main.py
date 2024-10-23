@@ -18,18 +18,18 @@ SPISpeed = 500000
 SPIFlags = 0
 
 #init thrusters parameters
-thrustersOrder = [Thrusters.H_FRONTLEFT, 
-                  Thrusters.H_FRONTRIGHT,
+thrustersOrder = [Thrusters.H_FRONT_LEFT, 
+                  Thrusters.H_FRONT_RIGHT,
                   Thrusters.H_REAR, 
-                  Thrusters.V_FRONTLEFT,
-                  Thrusters.V_FRONTRIGHT,
+                  Thrusters.V_FRONT_LEFT,
+                  Thrusters.V_FRONT_RIGHT,
                   Thrusters.V_REAR]
 thrustersDirCorr = [1, 1, 1, 1, 1, 1]
 trustersXValues = [-100, 100]
 
 #init control system
 controlSystem = YFrameControlSystem()
-controlSystem.set_thrusters_calibration_values(thrustersDirCorr, thrustersOrder, trustersXValues, 2)
+controlSystem.setThrustersCalibrationValues(thrustersDirCorr, thrustersOrder, trustersXValues, 2)
 
 #init timer parameters
 timerInterval = 1/500 #500 Hz timer interval
