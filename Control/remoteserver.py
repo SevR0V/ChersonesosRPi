@@ -209,13 +209,14 @@ class RemoteUdpDataServer(asyncio.Protocol):
     def dataCalculationTransfer(self):
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
-                self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10       
-        print(["%.2f" % elem for elem in self.controlSystem.getMotsControls()])
+                self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
+        thrust = self.controlSystem.getMotsControls()
+        print(["%.2f" % elem for elem in thrust])
         if self.MASTER:
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
             self.bridge.set_lights_values(lightsValues)            
-            self.bridge.set_mots_values(self.controlSystem.getMotsControls())
+            self.bridge.set_mots_values(thrust)
             self.bridge.set_cam_angle_value(self.cameraAngle)
 
         try:
