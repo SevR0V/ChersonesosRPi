@@ -210,7 +210,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
                 self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10       
-        print(self.controlSystem.getMotsControls())
+        print("%5.2f, %5.2f, %5.2f, %5.2f, %5.2f, %5.2f" (self.controlSystem.getMotsControls()))
         if self.MASTER:
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
