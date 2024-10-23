@@ -28,6 +28,7 @@ trustersXValues = [-100, 100]
 
 #init control system
 controlSystem = YFrameControlSystem(thrustersDirCorr, thrustersOrder, trustersXValues)
+controlSystem.set_thrusters_calibration_values(thrustersOrder, trustersXValues, 2)
 
 #init timer parameters
 timerInterval = 1/500 #500 Hz timer interval

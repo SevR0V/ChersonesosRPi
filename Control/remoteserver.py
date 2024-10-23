@@ -128,10 +128,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
             #fx, fy, vertical_thrust, powertarget, rotation_velocity, manipulator_grip, manipulator_rotate, camera_rotate, reset, light_state, stabilization, RollInc, PitchInc, ResetPosition.
             received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
             
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[0] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[1] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[2] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[4] * 100) 
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, (received[0] ** 3) * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, (received[1] ** 3) * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, (received[2] ** 3) * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, (received[4] ** 3) * 100) 
 
             self.powerTarget = received[3]
             self.cameraRotate = received[7]
@@ -186,10 +186,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.controlSystem.setStabilization(self.controlSystem.ControlAxes.YAW, yawStab)
             self.controlSystem.setStabilization(self.controlSystem.ControlAxes.DEPTH, depthStab) 
             
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, received[UDPRxValues.FORWARD] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, received[UDPRxValues.STRAFE] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, received[UDPRxValues.VERTICAL] * 100)
-            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, received[UDPRxValues.ROTATION] * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.FORWARD, (received[UDPRxValues.FORWARD] ** 3) * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.STRAFE, (received[UDPRxValues.STRAFE] ** 3) * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.DEPTH, (received[UDPRxValues.VERTICAL] ** 3) * 100)
+            self.controlSystem.setAxisInput(self.controlSystem.ControlAxes.YAW, (received[UDPRxValues.ROTATION] ** 3) * 100)
 
             rollInc = received[UDPRxValues.ROLL_INC]
             pitchInc = received[UDPRxValues.ROLL_INC]
