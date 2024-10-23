@@ -106,13 +106,14 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if not self.newRxPacket:            
             #fx, fy, vertical_thrust, powertarget, rotation_velocity, manipulator_grip, manipulator_rotate, camera_rotate, reset, light_state, stabilization, RollInc, PitchInc, ResetPosition.
             received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
-            
-            self.controlSystem.setAxisInput(ControlAxes.STRAFE, (received[0] ** 3) * 100)
-            self.controlSystem.setAxisInput(ControlAxes.FORWARD, (received[1] ** 3) * 100)
-            self.controlSystem.setAxisInput(ControlAxes.DEPTH, (received[2] ** 3) * 100)
-            self.controlSystem.setAxisInput(ControlAxes.YAW, (received[4] ** 3) * 100) 
 
             self.powerTarget = received[3] * 0.7
+            
+            self.controlSystem.setAxisInput(ControlAxes.STRAFE, (received[0] ** 3) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(ControlAxes.FORWARD, (received[1] ** 3) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(ControlAxes.DEPTH, (received[2] ** 3) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(ControlAxes.YAW, (received[4] ** 3) * 100 * self.powerTarget) 
+
             self.cameraRotate = received[7]
             self.cameraAngle += self.cameraRotate * self.incrementScale
             self.lightState = received[9]
@@ -164,11 +165,13 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.controlSystem.setStabilization(ControlAxes.PITCH, pitchStab)
             self.controlSystem.setStabilization(ControlAxes.YAW, yawStab)
             self.controlSystem.setStabilization(ControlAxes.DEPTH, depthStab) 
+
+            self.powerTarget = received[UDPRxValues.POWER_TARGET] * 0.7
             
-            self.controlSystem.setAxisInput(ControlAxes.FORWARD, (received[UDPRxValues.FORWARD] ** 3) * 100)
-            self.controlSystem.setAxisInput(ControlAxes.STRAFE, (received[UDPRxValues.STRAFE] ** 3) * 100)
-            self.controlSystem.setAxisInput(ControlAxes.DEPTH, (received[UDPRxValues.VERTICAL] ** 3) * 100)
-            self.controlSystem.setAxisInput(ControlAxes.YAW, (received[UDPRxValues.ROTATION] ** 3) * 100)
+            self.controlSystem.setAxisInput(ControlAxes.FORWARD, (received[UDPRxValues.FORWARD] ** 3) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(ControlAxes.STRAFE, (received[UDPRxValues.STRAFE] ** 3) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(ControlAxes.DEPTH, (received[UDPRxValues.VERTICAL] ** 3) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(ControlAxes.YAW, (received[UDPRxValues.ROTATION] ** 3) * 100 * self.powerTarget)
 
             rollInc = received[UDPRxValues.ROLL_INC]
             pitchInc = received[UDPRxValues.ROLL_INC]
@@ -180,7 +183,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 pitchSP = self.controlSystem.getPIDSetpoint(ControlAxes.PITCH) + pitchInc * self.incrementScale
                 self.controlSystem.setPIDSetpoint(ControlAxes.PITCH, pitchSP)
                 
-            self.powerTarget = received[UDPRxValues.POWER_TARGET] * 0.7
             self.cameraRotate = received[UDPRxValues.CAM_ROTATE]            
             self.cameraAngle += self.cameraRotate * self.incrementScale
             
@@ -204,25 +206,16 @@ class RemoteUdpDataServer(asyncio.Protocol):
                        
         self.controlSystem.setdt(self.timer.getInterval())
 
-    def __apllyPowerLimit(self, calculatedThrust):
-        limitedThrust = [0, 0, 0, 0, 0, 0]
-        for i in range(6):
-            limitedThrust[i] = calculatedThrust[i] * self.powerTarget
-        return limitedThrust
-
     def dataCalculationTransfer(self):
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
-                self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
-        
-        limitedThrust = self.__apllyPowerLimit(self.controlSystem.getMotsControls())        
-        print(limitedThrust)
-        
+                self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10       
+        print(self.controlSystem.getMotsControls())
         if self.MASTER:
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
             self.bridge.set_lights_values(lightsValues)            
-            self.bridge.set_mots_values(limitedThrust)
+            self.bridge.set_mots_values(self.controlSystem.getMotsControls())
             self.bridge.set_cam_angle_value(self.cameraAngle)
 
         try:
