@@ -111,10 +111,10 @@ class YFrameControlSystem:
 
         for i in range(6):
             inc = self.__thrusterIncrement if self.__motsOutputsSetpoint[i] > 0 else 0-self.__thrusterIncrement
-            if (self.__motsOutputsSetpoint[i] > 0 and self.__motsOutputsReal[i] < 0) or (self.__motsOutputsSetpoint[i] < 0 and self.__motsOutputsReal[i] > 0):
-                self.__motsOutputsReal[i] = 0
             self.__motsOutputsReal[i] += inc if abs(self.__motsOutputsReal[i]) < abs(self.__motsOutputsSetpoint[i]) else 0
             self.__motsOutputsReal[i] -= inc if abs(self.__motsOutputsReal[i]) > abs(self.__motsOutputsSetpoint[i]) else 0
+            if (self.__motsOutputsSetpoint[i] > 0 and self.__motsOutputsReal[i] < 0) or (self.__motsOutputsSetpoint[i] < 0 and self.__motsOutputsReal[i] > 0):
+                self.__motsOutputsReal[i] = 0
             if self.__motsOutputsSetpoint[i] == 0:
                 self.__motsOutputsReal[i] = 0
     
