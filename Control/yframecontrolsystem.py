@@ -54,6 +54,13 @@ class YFrameControlSystem:
         # Operating period
         self.__dt = 1/500
 
+    def __updateControl(self):
+        self.__updatePID()
+        self.__calculateHorizontalThrust()
+        self.__calculateVerticalThrust()
+        self.__thrustersCalibrate()
+        self.__smoothRPMBuildUp()
+
     def __updatePID(self):
         if not ((np.abs(self.__axesInputs[ControlAxes.DEPTH])<1) and self.__stabs[ControlAxes.DEPTH]):
             self.setPIDSetpoint(ControlAxes.DEPTH, self.__axesValues[ControlAxes.DEPTH])
@@ -76,7 +83,7 @@ class YFrameControlSystem:
         # HFL = self.__axesInputs[ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[ControlAxes.FORWARD] / 2 + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
         # HFR = - self.__axesInputs[ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[ControlAxes.FORWARD]  / 2 - 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
         # HRR = - self.__axesInputs[ControlAxes.STRAFE] + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
-        # alt thrust calculate
+        # alt thrust calculatation
         HFL = self.__axesInputs[ControlAxes.STRAFE] / 2 + self.__axesInputs[ControlAxes.FORWARD] + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
         HFR = - self.__axesInputs[ControlAxes.STRAFE] / 2 + self.__axesInputs[ControlAxes.FORWARD] - 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
         HRR = - self.__axesInputs[ControlAxes.STRAFE] + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
@@ -103,12 +110,7 @@ class YFrameControlSystem:
             reThrusters[i] = map_value(reThrusters[i], -100, 100, self.__trustersXValues[0], self.__trustersXValues[1]) * self.__thrustersDirCorr[i]
         self.__motsOutputsSetpoint = reThrusters
     
-    def __updateControl(self):
-        self.__updatePID()
-        self.__calculateHorizontalThrust()
-        self.__calculateVerticalThrust()
-        self.__thrustersCalibrate()
-
+    def __smoothRPMBuildUp(self):
         for i in range(6):
             inc = self.__thrusterIncrement if self.__motsOutputsSetpoint[i] > 0 else 0-self.__thrusterIncrement
             self.__motsOutputsReal[i] += inc if abs(self.__motsOutputsReal[i]) < abs(self.__motsOutputsSetpoint[i]) else 0
