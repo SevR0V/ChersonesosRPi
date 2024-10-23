@@ -5,6 +5,7 @@ from remoteserver import RemoteUdpDataServer
 from SPIContainer import SPI_Xfer_Container
 from asynctimer import AsyncTimer
 from yframecontrolsystem import YFrameControlSystem
+from yframecontrolsystem import Thrusters
 
 time.sleep(2)
 
@@ -17,12 +18,12 @@ SPISpeed = 500000
 SPIFlags = 0
 
 #init thrusters parameters
-thrustersOrder = [YFrameControlSystem.Thrusters.H_FRONTLEFT, 
-                  YFrameControlSystem.Thrusters.H_FRONTRIGHT,
-                  YFrameControlSystem.Thrusters.H_REAR, 
-                  YFrameControlSystem.Thrusters.V_FRONTLEFT,
-                  YFrameControlSystem.Thrusters.V_FRONTRIGHT,
-                  YFrameControlSystem.Thrusters.V_REAR]
+thrustersOrder = [Thrusters.H_FRONTLEFT, 
+                  Thrusters.H_FRONTRIGHT,
+                  Thrusters.H_REAR, 
+                  Thrusters.V_FRONTLEFT,
+                  Thrusters.V_FRONTRIGHT,
+                  Thrusters.V_REAR]
 thrustersDirCorr = [1, 1, 1, 1, 1, 1]
 trustersXValues = [-100, 100]
 

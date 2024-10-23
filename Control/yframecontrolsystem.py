@@ -2,16 +2,33 @@ from enum import IntEnum
 import numpy as np
 from utils import constrain, PID, ExpMovingAverageFilter, map_value
 
+class ControlAxes(IntEnum):
+    FORWARD     = 0
+    STRAFE      = 1
+    DEPTH       = 2
+    ROLL        = 3
+    PITCH       = 4    
+    YAW         = 5
+
+class Thrusters(IntEnum):
+    # Y-frame specific
+    H_FRONTLEFT     = 0
+    H_FRONTRIGHT    = 1
+    H_REAR          = 2
+    V_FRONTLEFT     = 3
+    V_FRONTRIGHT    = 4
+    V_REAR          = 5
+
 class YFrameControlSystem:
     def __init__(self):
         # Thrusters calibration values
         self.__thrustersDirCorr = [1, 1, 1, 1, 1, 1]
-        self.__thrustersOrder = [YFrameControlSystem.Thrusters.H_FRONTLEFT, 
-                  YFrameControlSystem.Thrusters.H_FRONTRIGHT,
-                  YFrameControlSystem.Thrusters.H_REAR, 
-                  YFrameControlSystem.Thrusters.V_FRONTLEFT,
-                  YFrameControlSystem.Thrusters.V_FRONTRIGHT,
-                  YFrameControlSystem.Thrusters.V_REAR]
+        self.__thrustersOrder = [Thrusters.H_FRONTLEFT, 
+                  Thrusters.H_FRONTRIGHT,
+                  Thrusters.H_REAR, 
+                  Thrusters.V_FRONTLEFT,
+                  Thrusters.V_FRONTRIGHT,
+                  Thrusters.V_REAR]
         self.__trustersXValues = [-100, 100]
         self.__thrusterIncrement = 0.5
         # (forward,strafe,depth,roll,pitch,yaw)
@@ -37,57 +54,40 @@ class YFrameControlSystem:
         # Operating period
         self.__dt = 1/500
 
-    class ControlAxes(IntEnum):
-        FORWARD     = 0
-        STRAFE      = 1
-        DEPTH       = 2
-        ROLL        = 3
-        PITCH       = 4    
-        YAW         = 5
-
-    class Thrusters(IntEnum):
-        # Y-frame specific
-        H_FRONTLEFT     = 0
-        H_FRONTRIGHT    = 1
-        H_REAR          = 2
-        V_FRONTLEFT     = 3
-        V_FRONTRIGHT    = 4
-        V_REAR          = 5
-
     def __updatePID(self):
-        if not ((np.abs(self.__axesInputs[self.ControlAxes.DEPTH])<1) and self.__stabs[self.ControlAxes.DEPTH]):
-            self.setPIDSetpoint(self.ControlAxes.DEPTH, self.__axesValues[self.ControlAxes.DEPTH])
+        if not ((np.abs(self.__axesInputs[ControlAxes.DEPTH])<1) and self.__stabs[ControlAxes.DEPTH]):
+            self.setPIDSetpoint(ControlAxes.DEPTH, self.__axesValues[ControlAxes.DEPTH])
         
-        if np.abs(self.__axesInputs[self.ControlAxes.YAW]) >= 1 or not self.__stabs[self.ControlAxes.YAW] : 
-            self.setPIDSetpoint(self.ControlAxes.YAW, self.__axesValues[self.ControlAxes.YAW])
+        if np.abs(self.__axesInputs[ControlAxes.YAW]) >= 1 or not self.__stabs[ControlAxes.YAW] : 
+            self.setPIDSetpoint(ControlAxes.YAW, self.__axesValues[ControlAxes.YAW])
 
-        yawPID = self.__PIDs[self.ControlAxes.YAW].update(self.__axesValues[self.ControlAxes.YAW], self.__dt) if (np.abs(self.__axesInputs[self.ControlAxes.YAW]) < 1) and self.__stabs[self.ControlAxes.YAW] else 0 
-        rollPID = self.__PIDs[self.ControlAxes.ROLL].update(self.__axesValues[self.ControlAxes.ROLL], self.__dt) if self.__stabs[self.ControlAxes.ROLL] else 0
-        pitchPID = self.__PIDs[self.ControlAxes.PITCH].update(self.__axesValues[self.ControlAxes.PITCH], self.__dt) if self.__stabs[self.ControlAxes.PITCH] else 0
-        depthPID = -self.__PIDs[self.ControlAxes.DEPTH].update(self.__axesValues[self.ControlAxes.DEPTH], self.__dt) if self.__stabs[self.ControlAxes.DEPTH] else 0
+        yawPID = self.__PIDs[ControlAxes.YAW].update(self.__axesValues[ControlAxes.YAW], self.__dt) if (np.abs(self.__axesInputs[ControlAxes.YAW]) < 1) and self.__stabs[ControlAxes.YAW] else 0 
+        rollPID = self.__PIDs[ControlAxes.ROLL].update(self.__axesValues[ControlAxes.ROLL], self.__dt) if self.__stabs[ControlAxes.ROLL] else 0
+        pitchPID = self.__PIDs[ControlAxes.PITCH].update(self.__axesValues[ControlAxes.PITCH], self.__dt) if self.__stabs[ControlAxes.PITCH] else 0
+        depthPID = -self.__PIDs[ControlAxes.DEPTH].update(self.__axesValues[ControlAxes.DEPTH], self.__dt) if self.__stabs[ControlAxes.DEPTH] else 0
 
-        self.__PIDValues[self.ControlAxes.YAW] = constrain(yawPID, -100, 100)
-        self.__PIDValues[self.ControlAxes.ROLL] = constrain(rollPID, -100, 100)
-        self.__PIDValues[self.ControlAxes.PITCH] = constrain(pitchPID, -100, 100)
-        self.__PIDValues[self.ControlAxes.DEPTH] = constrain(depthPID, -100, 100)
+        self.__PIDValues[ControlAxes.YAW] = constrain(yawPID, -100, 100)
+        self.__PIDValues[ControlAxes.ROLL] = constrain(rollPID, -100, 100)
+        self.__PIDValues[ControlAxes.PITCH] = constrain(pitchPID, -100, 100)
+        self.__PIDValues[ControlAxes.DEPTH] = constrain(depthPID, -100, 100)
 
     def __calculateHorizontalThrust(self):
-        HFL = self.__axesInputs[self.ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[self.ControlAxes.FORWARD] / 2 + 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
-        HFR = - self.__axesInputs[self.ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[self.ControlAxes.FORWARD]  / 2 - 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
-        HRR = - self.__axesInputs[self.ControlAxes.STRAFE] + 0.32 * (self.__axesInputs[self.ControlAxes.YAW] + self.__PIDValues[self.ControlAxes.YAW])
+        HFL = self.__axesInputs[ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[ControlAxes.FORWARD] / 2 + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
+        HFR = - self.__axesInputs[ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[ControlAxes.FORWARD]  / 2 - 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
+        HRR = - self.__axesInputs[ControlAxes.STRAFE] + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
 
-        self.__motsOutputsSetpoint[self.Thrusters.H_FRONTLEFT] = constrain(HFL, -100, 100)
-        self.__motsOutputsSetpoint[self.Thrusters.H_FRONTRIGHT] = constrain(HFR, -100, 100)
-        self.__motsOutputsSetpoint[self.Thrusters.H_REAR] = constrain(HRR, -100, 100)
+        self.__motsOutputsSetpoint[Thrusters.H_FRONTLEFT] = constrain(HFL, -100, 100)
+        self.__motsOutputsSetpoint[Thrusters.H_FRONTRIGHT] = constrain(HFR, -100, 100)
+        self.__motsOutputsSetpoint[Thrusters.H_REAR] = constrain(HRR, -100, 100)
         
     def __calculateVerticalThrust(self):
-        VFL = self.__PIDValues[self.ControlAxes.ROLL] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__PIDValues[self.ControlAxes.PITCH] + self.__axesInputs[self.ControlAxes.DEPTH]
-        VFR = -self.__PIDValues[self.ControlAxes.ROLL] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__PIDValues[self.ControlAxes.PITCH] + self.__axesInputs[self.ControlAxes.DEPTH]
-        VRR = -self.__PIDValues[self.ControlAxes.PITCH] + self.__PIDValues[self.ControlAxes.DEPTH] + self.__axesInputs[self.ControlAxes.DEPTH]
+        VFL = self.__PIDValues[ControlAxes.ROLL] + self.__PIDValues[ControlAxes.DEPTH] + self.__PIDValues[ControlAxes.PITCH] + self.__axesInputs[ControlAxes.DEPTH]
+        VFR = -self.__PIDValues[ControlAxes.ROLL] + self.__PIDValues[ControlAxes.DEPTH] + self.__PIDValues[ControlAxes.PITCH] + self.__axesInputs[ControlAxes.DEPTH]
+        VRR = -self.__PIDValues[ControlAxes.PITCH] + self.__PIDValues[ControlAxes.DEPTH] + self.__axesInputs[ControlAxes.DEPTH]
 
-        self.__motsOutputsSetpoint[self.Thrusters.V_FRONTLEFT] = constrain(VFL, -100, 100)
-        self.__motsOutputsSetpoint[self.Thrusters.V_FRONTRIGHT] = constrain(VFR, -100, 100)
-        self.__motsOutputsSetpoint[self.Thrusters.V_REAR] = constrain(VRR, -100, 100)
+        self.__motsOutputsSetpoint[Thrusters.V_FRONTLEFT] = constrain(VFL, -100, 100)
+        self.__motsOutputsSetpoint[Thrusters.V_FRONTRIGHT] = constrain(VFR, -100, 100)
+        self.__motsOutputsSetpoint[Thrusters.V_REAR] = constrain(VRR, -100, 100)
 
     def __thrustersCalibrate(self):
         if not (len(self.__motsOutputsSetpoint) == len(self.__thrustersDirCorr)) and not (len(self.__motsOutputsSetpoint) == len(self.__thrustersOrder)):
