@@ -203,7 +203,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
                                   self.controlSystem.getAxisValue(ControlAxes.YAW)]
                        
         self.controlSystem.setdt(self.timer.getInterval())
-        print(self.controlSystem.getMotsControls())
 
     def __apllyPowerLimit(self, calculatedThrust):
         limitedThrust = [0, 0, 0, 0, 0, 0]
@@ -216,8 +215,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
             if self.depth_sensor.read(ms5837.OSR_256):
                 self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
         
-        limitedThrust = self.__apllyPowerLimit(self.controlSystem.getMotsControls())
-
+        limitedThrust = self.__apllyPowerLimit(self.controlSystem.getMotsControls())        
+        print(limitedThrust)
+        
         if self.MASTER:
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
