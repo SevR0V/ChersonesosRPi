@@ -141,10 +141,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.controlSystem.setStabilizations([0,0,0,0,0,0])
                 
             if(received[26]):
-                    self.controlSystem.setPIDConstants(Axes.ROLL, [received[14], received[15], received[16]])
-                    self.controlSystem.setPIDConstants(Axes.PITCH, [received[17], received[18], received[19]])
-                    self.controlSystem.setPIDConstants(Axes.YAW, [received[20], received[21], received[22]])
-                    self.controlSystem.setPIDConstants(Axes.DEPTH, [received[23], received[24], received[25]])
+                self.controlSystem.setPIDConstants(Axes.ROLL, [received[14], received[15], received[16]])
+                self.controlSystem.setPIDConstants(Axes.PITCH, [received[17], received[18], received[19]])
+                self.controlSystem.setPIDConstants(Axes.YAW, [received[20], received[21], received[22]])
+                self.controlSystem.setPIDConstants(Axes.DEPTH, [received[23], received[24], received[25]])
         else:
             # controlFlags, forward, strafe, vertical, rotation, rollInc, pitchInc, powerTarget, cameraRotate, manipulatorGrip, manipulatorRotate, rollKp, rollKi, rollKd, pitchKp, pitchKi, pitchKd, yawKp, yawKi, yawKd, depthKp, depthKi, depthKd
             # flags = MASTER, lightState, stabRoll, stabPitch, stabYaw, stabDepth, resetPosition, resetIMU, updatePID
