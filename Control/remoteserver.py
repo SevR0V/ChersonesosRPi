@@ -47,30 +47,7 @@ class UDPRxValues(IntEnum):
     YAW_KD = 19
     DEPTH_KP = 20
     DEPTH_KI = 21
-    DEPTH_KD = 22
-
-def thrustersDirCalibrate(thrusters: list, inv: list):
-    if not (len(thrusters) == len(inv)):
-        return None
-    thrstrsC= [0.0] * len(thrusters)
-    for i in range(len(thrusters)):
-        thrstrsC[i] = thrusters[i] * inv[i]
-    return thrstrsC
-
-def thrustersReorder(thrusters, order):
-    if not (len(thrusters) == len(order)):
-        return None
-    reThrusters = [0.0] * len(thrusters)
-    for i in range(len(thrusters)):
-        reThrusters[i] = thrusters[order[i]]
-    return reThrusters
-
-def thrustersReMap(thrusters, valueRange):
-    reThrusters = [0.0] * len(thrusters)
-    for i in range(len(thrusters)):
-        reThrusters[i] = map_value(thrusters[i], -100, 100, valueRange[0], valueRange[1])
-    return reThrusters
-        
+    DEPTH_KD = 22        
 
 class RemoteUdpDataServer(asyncio.Protocol):
     def __init__(self, contolSystem: YFrameControlSystem, timer: AsyncTimer, bridge: SPI_Xfer_Container):
@@ -135,7 +112,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.controlSystem.setAxisInput(ControlAxes.DEPTH, (received[2] ** 3) * 100)
             self.controlSystem.setAxisInput(ControlAxes.YAW, (received[4] ** 3) * 100) 
 
-            self.powerTarget = received[3]
+            self.powerTarget = received[3] * 0.7
             self.cameraRotate = received[7]
             self.cameraAngle += self.cameraRotate * self.incrementScale
             self.lightState = received[9]
@@ -203,7 +180,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 pitchSP = self.controlSystem.getPIDSetpoint(ControlAxes.PITCH) + pitchInc * self.incrementScale
                 self.controlSystem.setPIDSetpoint(ControlAxes.PITCH, pitchSP)
                 
-            self.powerTarget = received[UDPRxValues.POWER_TARGET]
+            self.powerTarget = received[UDPRxValues.POWER_TARGET] * 0.7
             self.cameraRotate = received[UDPRxValues.CAM_ROTATE]            
             self.cameraAngle += self.cameraRotate * self.incrementScale
             
@@ -226,17 +203,26 @@ class RemoteUdpDataServer(asyncio.Protocol):
                                   self.controlSystem.getAxisValue(ControlAxes.YAW)]
                        
         self.controlSystem.setdt(self.timer.getInterval())
+        print(self.controlSystem.getMotsControls())
+
+    def __apllyPowerLimit(self, calculatedThrust):
+        limitedThrust = [0, 0, 0, 0, 0, 0]
+        for i in range(6):
+            limitedThrust[i] = calculatedThrust[i] * self.powerTarget
+        return limitedThrust
 
     def dataCalculationTransfer(self):
         if self.ds_init:
             if self.depth_sensor.read(ms5837.OSR_256):
                 self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
+        
+        limitedThrust = self.__apllyPowerLimit(self.controlSystem.getMotsControls())
 
         if self.MASTER:
             self.bridge.set_cam_angle_value(self.cameraAngle)
             lightsValues = [50*self.lightState, 50*self.lightState]
             self.bridge.set_lights_values(lightsValues)            
-            self.bridge.set_mots_values(self.controlSystem.getMotsControls())
+            self.bridge.set_mots_values(limitedThrust)
             self.bridge.set_cam_angle_value(self.cameraAngle)
 
         try:
@@ -282,7 +268,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
                                           self.eulers[0] - self.IMUErrors[0], 
                                           self.eulers[1] - self.IMUErrors[1], 
                                           self.eulers[2] - self.IMUErrors[2]])
-        print(self.controlSystem.getMotsControls())
         if self.remoteAddres:
             if not self.newTxPacket:
                 telemetry_data = struct.pack('=fffffff', self.controlSystem.getAxisValue(ControlAxes.ROLL), 
