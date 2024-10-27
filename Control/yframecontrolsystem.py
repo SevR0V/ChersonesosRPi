@@ -10,7 +10,7 @@ class Axes(IntEnum):
     PITCH   = 4    
     YAW     = 5
 
-class Thrusters(IntEnum):
+class ThrustersNames(IntEnum):
     # Y-frame specific
     H_FRONT_LEFT    = 0
     H_FRONT_RIGHT   = 1
@@ -19,16 +19,16 @@ class Thrusters(IntEnum):
     V_FRONT_RIGHT   = 4
     V_REAR          = 5
 
-class YFrameControlSystem:
+class ControlSystem:
     def __init__(self):
         # Thrusters calibration values
         self.__thrustersDirCorr = [1, 1, 1, 1, 1, 1]
-        self.__thrustersOrder = [Thrusters.H_FRONT_LEFT, 
-                                 Thrusters.H_FRONT_RIGHT,
-                                 Thrusters.H_REAR, 
-                                 Thrusters.V_FRONT_LEFT,
-                                 Thrusters.V_FRONT_RIGHT,
-                                 Thrusters.V_REAR]
+        self.__thrustersOrder = [ThrustersNames.H_FRONT_LEFT, 
+                                 ThrustersNames.H_FRONT_RIGHT,
+                                 ThrustersNames.H_REAR, 
+                                 ThrustersNames.V_FRONT_LEFT,
+                                 ThrustersNames.V_FRONT_RIGHT,
+                                 ThrustersNames.V_REAR]
         self.__trustersXValues = [-100, 100]
         self.__thrusterIncrement = 0.5
         # (forward,strafe,depth,roll,pitch,yaw)
@@ -92,25 +92,24 @@ class YFrameControlSystem:
         HFR = - self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] - 0.32 * (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
         HRR = - self.__axesInputs[Axes.STRAFE] + 0.32 * (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
 
-        self.__thrustersOutputsSetpoints[Thrusters.H_FRONT_LEFT] = constrain(HFL, -100, 100)
-        self.__thrustersOutputsSetpoints[Thrusters.H_FRONT_RIGHT] = constrain(HFR, -100, 100)
-        self.__thrustersOutputsSetpoints[Thrusters.H_REAR] = constrain(HRR, -100, 100)
+        self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_LEFT)] = constrain(HFL, -100, 100)
+        self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_RIGHT)] = constrain(HFR, -100, 100)
+        self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_REAR)] = constrain(HRR, -100, 100)
         
     def __calculateVerticalThrust(self):
         VFL = self.__PIDValues[Axes.ROLL] + self.__PIDValues[Axes.DEPTH] + self.__PIDValues[Axes.PITCH] + self.__axesInputs[Axes.DEPTH]
         VFR = -self.__PIDValues[Axes.ROLL] + self.__PIDValues[Axes.DEPTH] + self.__PIDValues[Axes.PITCH] + self.__axesInputs[Axes.DEPTH]
         VRR = -self.__PIDValues[Axes.PITCH] + self.__PIDValues[Axes.DEPTH] + self.__axesInputs[Axes.DEPTH]
 
-        self.__thrustersOutputsSetpoints[Thrusters.V_FRONT_LEFT] = constrain(VFL, -100, 100)
-        self.__thrustersOutputsSetpoints[Thrusters.V_FRONT_RIGHT] = constrain(VFR, -100, 100)
-        self.__thrustersOutputsSetpoints[Thrusters.V_REAR] = constrain(VRR, -100, 100)
+        self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.V_FRONT_LEFT)] = constrain(VFL, -100, 100)
+        self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.V_FRONT_RIGHT)] = constrain(VFR, -100, 100)
+        self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.V_REAR)] = constrain(VRR, -100, 100)
 
     def __thrustersCalibrate(self):
-        if not (len(self.__thrustersOutputsSetpoints) == len(self.__thrustersDirCorr)) and not (len(self.__thrustersOutputsSetpoints) == len(self.__thrustersOrder)):
+        if not (len(self.__thrustersOutputsSetpoints) == len(self.__thrustersDirCorr)):
             return None
-        reThrusters = [0.0] * len(self.__thrustersOutputsSetpoints)
+        reThrusters = self.__thrustersOutputsSetpoints
         for i in range(len(self.__thrustersOutputsSetpoints)):
-            reThrusters[i] = self.__thrustersOutputsSetpoints[self.__thrustersOrder[i]]
             reThrusters[i] = map_value(reThrusters[i], -100, 100, self.__trustersXValues[0], self.__trustersXValues[1]) * self.__thrustersDirCorr[i]
         self.__thrustersOutputsSetpoints = reThrusters
     

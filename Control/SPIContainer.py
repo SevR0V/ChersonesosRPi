@@ -1,6 +1,5 @@
 import struct
 import numpy as np
-import time
 from enum import IntEnum
 
 # TX_BUFFER: [ MAGIC_START | MOT_SERVO | MAN_Q | ... | MAGIC_END ]
