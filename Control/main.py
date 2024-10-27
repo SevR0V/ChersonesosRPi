@@ -1,51 +1,111 @@
 import asyncio
-import time
 import pigpio
 from remoteserver import RemoteUdpDataServer
+from remoteserver import IMUType
+from remoteserver import ControlType
 from SPIContainer import SPI_Xfer_Container
 from asynctimer import AsyncTimer
-from yframecontrolsystem import YFrameControlSystem
-from yframecontrolsystem import Thrusters
+from yframecontrolsystem import ControlSystem
+from yframecontrolsystem import ThrustersNames
+from navx import Navx
+import serial_asyncio
+from thruster import Thrusters
+from ligths import Lights
+from servo import Servo
 
-time.sleep(2)
+#select IMU
+# IMUType.NAVX
+# IMUType.POLOLU
+imuType = IMUType.POLOLU
+
+#select contol type
+# ControlType.DIRECT_CTRL
+# ControlType.STM_CTRL
+controlType = ControlType.STM_CTRL
+
+if controlType == ControlType.DIRECT_CTRL:
+    imuType = IMUType.NAVX
 
 pi = pigpio.pi()
 loop = asyncio.get_event_loop()
 
-#init SPI parameters
-SPIChannel = 0
-SPISpeed = 500000
-SPIFlags = 0
+bridge = None
+navx = None
+lights = None
+thrusters = None
+cameraServo = None
+udp_server = None
 
 #init thrusters parameters
-thrustersOrder = [Thrusters.H_FRONT_LEFT, 
-                  Thrusters.H_FRONT_RIGHT,
-                  Thrusters.H_REAR, 
-                  Thrusters.V_FRONT_LEFT,
-                  Thrusters.V_FRONT_RIGHT,
-                  Thrusters.V_REAR]
+thrustersOrder = [ThrustersNames.H_FRONT_LEFT, 
+                  ThrustersNames.H_FRONT_RIGHT,
+                  ThrustersNames.H_REAR, 
+                  ThrustersNames.V_FRONT_LEFT,
+                  ThrustersNames.V_FRONT_RIGHT,
+                  ThrustersNames.V_REAR]
 thrustersDirCorr = [1, 1, 1, 1, 1, 1]
 trustersXValues = [-100, 100]
 
 #init control system
-controlSystem = YFrameControlSystem()
+controlSystem = ControlSystem()
 controlSystem.setThrustersCalibrationValues(thrustersDirCorr, thrustersOrder, trustersXValues, 2)
 
 #init timer parameters
-timerInterval = 1/500 #500 Hz timer interval
+timerInterval = 1/300 #300 Hz timer interval
 
-#init devices
+#init timer
 timer = timer = AsyncTimer(timerInterval, loop)
-bridge = SPI_Xfer_Container(pi, SPIChannel, SPISpeed, SPIFlags)
 
-#init main server
-udp_server = RemoteUdpDataServer(controlSystem, timer, bridge)
+if imuType == IMUType.NAVX:
+    #init NavX
+    navx = Navx()
+
+if controlType == ControlType.STM_CTRL:
+    #init SPI parameters
+    SPIChannel = 0
+    SPISpeed = 500000
+    SPIFlags = 0
+    bridge = SPI_Xfer_Container(pi, SPIChannel, SPISpeed, SPIFlags)
+
+    #init main server
+    udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx)
+
+if controlType == ControlType.DIRECT_CTRL:
+    #init thrusters
+    thrustersPins = [0] * 6
+
+    thrustersPins[thrustersOrder.index(ThrustersNames.H_FRONT_LEFT)]     = 10
+    thrustersPins[thrustersOrder.index(ThrustersNames.H_FRONT_RIGHT)]    = 9
+    thrustersPins[thrustersOrder.index(ThrustersNames.H_REAR)]           = 17
+    thrustersPins[thrustersOrder.index(ThrustersNames.V_FRONT_LEFT)]     = 22
+    thrustersPins[thrustersOrder.index(ThrustersNames.V_FRONT_RIGHT)]    = 27
+    thrustersPins[thrustersOrder.index(ThrustersNames.V_REAR)]           = 11
+
+    thrusters = Thrusters(pi, thrustersPins, [16], [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]], [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]])
+
+    #init servos
+    cameraServo = Servo(pi, 5, [0, 90])
+
+    #init lights
+    lights = Lights(pi, [19, 26])
+
+    #init main server
+    udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, lights, cameraServo)
+
+
 
 #create tasks
+serial_task = None
+task = None
 udp_server_task = loop.create_datagram_endpoint(lambda: udp_server, local_addr=('0.0.0.0', 1337))
+if imuType == IMUType.NAVX:
+    serial_task = serial_asyncio.create_serial_connection(loop, lambda: navx, '/dev/ttyACM0', baudrate=115200)
 
 #register tasks
-task = asyncio.gather(udp_server_task, return_exceptions=True)
+if imuType == IMUType.NAVX:
+    task = asyncio.gather(udp_server_task, serial_task, return_exceptions=True)
+else:
+    task = asyncio.gather(udp_server_task, return_exceptions=True)
 
 #start main loop
 loop.run_until_complete(task)
