@@ -325,7 +325,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.transport.sendto(telemetry_data, self.remoteAddres)
                 
 
-    def shutdown(self):       
+    def shutdown(self):
+        self.timer.stop()
         if self.bridge is not None:
             self.bridge.close()
         if self.thrusters is not None:
