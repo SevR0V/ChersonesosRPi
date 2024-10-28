@@ -228,7 +228,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                        
         self.controlSystem.setdt(self.timer.getInterval())
 
-    def navx_data_received(self, data):
+    def navx_data_received(self, sender, data):
         pitch, roll, yaw, heading = data
         self.eulers = [roll, pitch, yaw]
 
@@ -294,8 +294,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
                             self.eulers[0] - self.IMUErrors[0], 
                             self.eulers[1] - self.IMUErrors[1], 
                             self.eulers[2] - self.IMUErrors[2]])
-        
-
 
         if self.remoteAddres:
             if not self.newTxPacket:

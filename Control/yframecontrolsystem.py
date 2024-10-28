@@ -39,9 +39,9 @@ class ControlSystem:
         self.__PIDs = [None, 
                        None, 
                        PID(10, 0, 0, 0),
-                       PID(10, 0, 0, 0),
-                       PID(10, 0, 0, 0),
-                       PID(10, 0, 0, 0)]
+                       PID(10, 0, 0, 0, True),
+                       PID(10, 0, 0, 0, True),
+                       PID(10, 0, 0, 0, True)]
         self.__filters = [None, 
                           None, 
                           ExpMovingAverageFilter(0.8),
