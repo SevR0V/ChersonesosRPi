@@ -32,6 +32,7 @@ class Thrusters:
 
     def set_thrust_all(self, values):
         min_pulse, max_pulse = self.min_max_pulse
+        self.thrust_values = values
         for pin, thrust, y0_dz, y1_dz in zip(self.pins, self.thrust_values, self.pulse_zero_deadzones, self.pulse_bounds_deadzones):
             thrust = constrain(thrust,-100, 100)
             pulse_width = super_map(thrust, -100, 100, min_pulse, max_pulse, y0_dz, y1_dz, self.zero_control_zone)

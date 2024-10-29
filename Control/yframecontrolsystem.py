@@ -72,34 +72,21 @@ class ControlSystem:
         if np.abs(self.__axesInputs[Axes.YAW]) >= 1 or not self.__stabs[Axes.YAW] : 
             self.setPIDSetpoint(Axes.YAW, self.__axesValues[Axes.YAW])
 
-
-        absroll = abs(self.__axesValues[Axes.ROLL])
-        absyaw = abs(self.__axesValues[Axes.YAW])
-        abspitch = abs(self.__axesValues[Axes.PITCH])
-
-        yawPID = self.__PIDs[Axes.YAW].update(absyaw, self.__dt) if (np.abs(self.__axesInputs[Axes.YAW]) < 1) and self.__stabs[Axes.YAW] else 0 
-        rollPID = self.__PIDs[Axes.ROLL].update(absroll, self.__dt) if self.__stabs[Axes.ROLL] else 0
-        pitchPID = self.__PIDs[Axes.PITCH].update(abspitch, self.__dt) if self.__stabs[Axes.PITCH] else 0
+        yawPID = self.__PIDs[Axes.YAW].update(self.__axesValues[Axes.YAW], self.__dt) if (np.abs(self.__axesInputs[Axes.YAW]) < 1) and self.__stabs[Axes.YAW] else 0 
+        rollPID = self.__PIDs[Axes.ROLL].update(self.__axesValues[Axes.ROLL], self.__dt) if self.__stabs[Axes.ROLL] else 0
+        pitchPID = self.__PIDs[Axes.PITCH].update(self.__axesValues[Axes.PITCH], self.__dt) if self.__stabs[Axes.PITCH] else 0
         depthPID = -self.__PIDs[Axes.DEPTH].update(self.__axesValues[Axes.DEPTH], self.__dt) if self.__stabs[Axes.DEPTH] else 0
 
-        rollPID *= -1 if self.__axesValues[Axes.ROLL] < 0 else 1
-        pitchPID *= -1 if self.__axesValues[Axes.PITCH] < 0 else 1
-        yawPID *= -1 if self.__axesValues[Axes.YAW] < 0 else 1
-
-        self.__PIDValues[Axes.YAW] = constrain(yawPID, -100, 100)
-        self.__PIDValues[Axes.ROLL] = constrain(rollPID, -100, 100)
-        self.__PIDValues[Axes.PITCH] = constrain(pitchPID, -100, 100)
+        self.__PIDValues[Axes.YAW] = -constrain(yawPID, -100, 100) * 0.5
+        self.__PIDValues[Axes.ROLL] = constrain(rollPID, -100, 100) * 0.5
+        self.__PIDValues[Axes.PITCH] = constrain(pitchPID, -100, 100) * 0.5
         self.__PIDValues[Axes.DEPTH] = constrain(depthPID, -100, 100)
 
     def __calculateHorizontalThrust(self):
 
-        # HFL = self.__axesInputs[ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[ControlAxes.FORWARD] / 2 + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
-        # HFR = - self.__axesInputs[ControlAxes.STRAFE] / 2 + np.sqrt(3) * self.__axesInputs[ControlAxes.FORWARD]  / 2 - 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
-        # HRR = - self.__axesInputs[ControlAxes.STRAFE] + 0.32 * (self.__axesInputs[ControlAxes.YAW] + self.__PIDValues[ControlAxes.YAW])
-        # alt thrust calculatation
-        HFL = self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] + 0.32 * (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
-        HFR = - self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] - 0.32 * (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
-        HRR = - self.__axesInputs[Axes.STRAFE] + 0.32 * (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HFL = self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] + (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HFR = - self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] - (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HRR = - self.__axesInputs[Axes.STRAFE] + (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
 
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_LEFT)] = constrain(HFL, -100, 100)
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_RIGHT)] = constrain(HFR, -100, 100)

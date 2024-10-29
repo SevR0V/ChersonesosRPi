@@ -16,12 +16,12 @@ from servo import Servo
 #select IMU
 # IMUType.NAVX
 # IMUType.POLOLU
-imuType = IMUType.POLOLU
+imuType = IMUType.NAVX
 
 #select contol type
 # ControlType.DIRECT_CTRL
 # ControlType.STM_CTRL
-controlType = ControlType.STM_CTRL
+controlType = ControlType.DIRECT_CTRL
 
 if controlType == ControlType.DIRECT_CTRL:
     imuType = IMUType.NAVX
@@ -43,7 +43,7 @@ thrustersOrder = [ThrustersNames.H_FRONT_LEFT,
                   ThrustersNames.V_FRONT_LEFT,
                   ThrustersNames.V_FRONT_RIGHT,
                   ThrustersNames.V_REAR]
-thrustersDirCorr = [1, 1, 1, 1, 1, 1]
+thrustersDirCorr = [1, -1, 1, 1, -1, 1]
 trustersXValues = [-100, 100]
 
 #init control system
@@ -74,14 +74,16 @@ if controlType == ControlType.DIRECT_CTRL:
     #init thrusters
     thrustersPins = [0] * 6
 
-    thrustersPins[thrustersOrder.index(ThrustersNames.H_FRONT_LEFT)]     = 10
+    thrustersPins[thrustersOrder.index(ThrustersNames.H_FRONT_LEFT)]     = 22
     thrustersPins[thrustersOrder.index(ThrustersNames.H_FRONT_RIGHT)]    = 9
-    thrustersPins[thrustersOrder.index(ThrustersNames.H_REAR)]           = 17
-    thrustersPins[thrustersOrder.index(ThrustersNames.V_FRONT_LEFT)]     = 22
-    thrustersPins[thrustersOrder.index(ThrustersNames.V_FRONT_RIGHT)]    = 27
-    thrustersPins[thrustersOrder.index(ThrustersNames.V_REAR)]           = 11
+    thrustersPins[thrustersOrder.index(ThrustersNames.H_REAR)]           = 27
+    thrustersPins[thrustersOrder.index(ThrustersNames.V_FRONT_LEFT)]     = 10
+    thrustersPins[thrustersOrder.index(ThrustersNames.V_FRONT_RIGHT)]    = 11
+    thrustersPins[thrustersOrder.index(ThrustersNames.V_REAR)]           = 17
 
-    thrusters = Thrusters(pi, thrustersPins, [16], [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]], [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]])
+    thrusters = Thrusters(pi, thrustersPins, [16], 
+                          [[50, 20],[50, 20],[50, 20],[50, 20],[50, 20],[50, 20]], 
+                          [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]])
 
     #init servos
     cameraServo = Servo(pi, 5, [0, 90])

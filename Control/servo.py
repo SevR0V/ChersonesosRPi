@@ -9,5 +9,5 @@ class Servo:
 
     def rotate(self, angle):
         angle = constrain(angle, self.limits[0], self.limits[1])
-        pulse_width = map_value(angle, self.limits[0], self.limits[1], 1000, 2000)
+        pulse_width = map_value(angle, self.limits[0], self.limits[1], 500, 2500)
         self.pi.set_servo_pulsewidth(self.pin, pulse_width)

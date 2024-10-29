@@ -13,6 +13,7 @@ from thruster import Thrusters
 from navx import Navx
 from ligths import Lights
 from servo import Servo
+from utils import constrain, map_value
 
 to_rad = math.pi / 180
 
@@ -76,7 +77,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         timer.start()
         self.powerTarget = 0
         self.cameraRotate = 0
-        self.cameraAngle = 0
+        self.cameraAngle = 65
         self.lightState = 0
         self.eulers = [0.0, 0.0, 0.0]
         self.accelerations = [0.0, 0.0, 0.0]
@@ -137,7 +138,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.controlSystem.setAxisInput(Axes.YAW, (received[4] ** 3) * 100 * self.powerTarget) 
 
             self.cameraRotate = received[7]
-            self.cameraAngle += self.cameraRotate * self.incrementScale
+            self.cameraAngle += self.cameraRotate * self.incrementScale * 3
+            self.cameraAngle = constrain(self.cameraAngle, 40, 90)
             self.lightState = received[9]
 
             rollStab =  1 if received[10] & 0b00000001 else 0
@@ -229,8 +231,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.controlSystem.setdt(self.timer.getInterval())
 
     def navx_data_received(self, sender, data):
-        pitch, roll, yaw, heading = data
-        self.eulers = [roll, pitch, yaw]
+        roll, pitch, yaw, heading = data
+        self.eulers = [roll, -pitch, yaw]
 
     def dataCalculationTransfer(self):
         if self.ds_init:
@@ -239,7 +241,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         thrust = self.controlSystem.getThrustersControls()
 
-        print(*["%.2f" % elem for elem in thrust], sep ='; ')
+        #print(*["%.2f" % elem for elem in thrust], sep ='; ')
 
         if self.MASTER:
             if self.controlType == ControlType.STM_CTRL:
@@ -256,7 +258,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                     self.lights.on()
                 else:
                     self.lights.off()
-
+                print(self.cameraAngle)
                 self.cameraServo.rotate(self.cameraAngle)
 
         if self.controlType == ControlType.STM_CTRL:
@@ -289,18 +291,17 @@ class RemoteUdpDataServer(asyncio.Protocol):
             if curLights is not None:
                 self.curLights = curLights
 
-        self.controlSystem.setAxesValues([0, 0, 
-                            self.depth, 
-                            self.eulers[0] - self.IMUErrors[0], 
-                            self.eulers[1] - self.IMUErrors[1], 
-                            self.eulers[2] - self.IMUErrors[2]])
 
+        self.controlSystem.setAxisValue(Axes.DEPTH, self.depth)
+        self.controlSystem.setAxisValue(Axes.ROLL, self.eulers[0] - self.IMUErrors[0])
+        self.controlSystem.setAxisValue(Axes.PITCH, self.eulers[1] - self.IMUErrors[1])
+        self.controlSystem.setAxisValue(Axes.YAW, self.eulers[2] - self.IMUErrors[2])
         if self.remoteAddres:
             if not self.newTxPacket:
                 telemetry_data = struct.pack('=fffffff', self.controlSystem.getAxisValue(Axes.ROLL), 
                                             self.controlSystem.getAxisValue(Axes.PITCH), 
                                             self.controlSystem.getAxisValue(Axes.YAW), 
-                                            0.0, 
+                                            map_value(self.cameraAngle, 40, 90, -90, 90),
                                             self.controlSystem.getAxisValue(Axes.DEPTH), 
                                             self.controlSystem.getPIDSetpoint(Axes.ROLL), 
                                             self.controlSystem.getPIDSetpoint(Axes.PITCH))
