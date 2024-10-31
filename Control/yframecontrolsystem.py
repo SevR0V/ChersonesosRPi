@@ -44,7 +44,7 @@ class ControlSystem:
                        PID(10, 0, 0, 0, True)]
         self.__filters = [None, 
                           None, 
-                          ExpMovingAverageFilter(0.8),
+                          ExpMovingAverageFilter(0.1),
                           None, 
                           None, 
                           None]

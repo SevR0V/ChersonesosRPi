@@ -98,6 +98,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
         
         self.newRxPacket = False
         self.newTxPacket = False
+        
+        self.depthDelay = 10
+        self.counter = 0
 
         if self.imuType == IMUType.NAVX:
             navx.subscribe(self.navx_data_received)
@@ -235,9 +238,13 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.eulers = [roll, -pitch, yaw]
 
     def dataCalculationTransfer(self):
-        if self.ds_init:
-            if self.depth_sensor.read(ms5837.OSR_256):
-                self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
+        
+        self.counter += 1
+        if self.counter >= self.depthDelay:
+            self.counter = 0
+            if self.ds_init:
+                if self.depth_sensor.read(ms5837.OSR_8192):
+                    self.depth = self.depth_sensor.pressure(ms5837.UNITS_atm)*10-10
 
         thrust = self.controlSystem.getThrustersControls()
 
@@ -258,7 +265,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
                     self.lights.on()
                 else:
                     self.lights.off()
-                print(self.cameraAngle)
                 self.cameraServo.rotate(self.cameraAngle)
 
         if self.controlType == ControlType.STM_CTRL:

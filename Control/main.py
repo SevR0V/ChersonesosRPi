@@ -51,7 +51,7 @@ controlSystem = ControlSystem()
 controlSystem.setThrustersCalibrationValues(thrustersDirCorr, thrustersOrder, trustersXValues, 2)
 
 #init timer parameters
-timerInterval = 1/300 #300 Hz timer interval
+timerInterval = 1/500 #300 Hz timer interval
 
 #init timer
 timer = timer = AsyncTimer(timerInterval, loop)
@@ -82,7 +82,8 @@ if controlType == ControlType.DIRECT_CTRL:
     thrustersPins[thrustersOrder.index(ThrustersNames.V_REAR)]           = 17
 
     thrusters = Thrusters(pi, thrustersPins, [16], 
-                          [[50, 20],[50, 20],[50, 20],[50, 20],[50, 20],[50, 20]], 
+                          [[20, 20],[20, 20],[20, 20],[20, 20],[20, 20],[20, 20]],
+                          #[[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]],
                           [[0, 0],[0, 0],[0, 0],[0, 0],[0, 0],[0, 0]])
 
     #init servos
