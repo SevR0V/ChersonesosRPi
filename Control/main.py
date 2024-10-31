@@ -54,7 +54,7 @@ controlSystem.setThrustersCalibrationValues(thrustersDirCorr, thrustersOrder, tr
 timerInterval = 1/500 #300 Hz timer interval
 
 #init timer
-timer = timer = AsyncTimer(timerInterval, loop)
+timer = AsyncTimer(timerInterval, loop)
 
 if imuType == IMUType.NAVX:
     #init NavX

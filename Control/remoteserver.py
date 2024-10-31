@@ -73,8 +73,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.lights = lights
         self.cameraServo = cameraServo
         self.remoteAddres = None
-        timer.subscribe(self.dataCalculationTransfer)
-        timer.start()
+        self.timer.subscribe(self.dataCalculationTransfer)
+        self.timer.start()
         self.powerTarget = 0
         self.cameraRotate = 0
         self.cameraAngle = 65
