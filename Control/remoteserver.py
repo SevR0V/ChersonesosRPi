@@ -27,6 +27,8 @@ UDP_FLAGS_RESET_POSITIONx = np.uint64(1 << 6)
 UDP_FLAGS_RESET_IMUx = np.uint64(1 << 7)
 UDP_FLAGS_UPDATE_PIDx = np.uint64(1 << 8)
 
+YAW_CAP = 0.3
+
 class IMUType(IntEnum):
     POLOLU = 0
     NAVX = 1
@@ -193,12 +195,12 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.controlSystem.setStabilization(Axes.YAW, yawStab)
             self.controlSystem.setStabilization(Axes.DEPTH, depthStab) 
 
-            self.powerTarget = received[UDPRxValues.POWER_TARGET] * self.maxPowerTarget
+            self.powerTarget = received[UDPRxValues.POWER_TARGET] 
             
-            self.controlSystem.setAxisInput(Axes.FORWARD, (received[UDPRxValues.FORWARD] ** 3) * 100 * self.powerTarget)
-            self.controlSystem.setAxisInput(Axes.STRAFE, (received[UDPRxValues.STRAFE] ** 3) * 100 * self.powerTarget)
-            self.controlSystem.setAxisInput(Axes.DEPTH, (received[UDPRxValues.VERTICAL] ** 3) * 100 * self.powerTarget)
-            self.controlSystem.setAxisInput(Axes.YAW, (received[UDPRxValues.ROTATION] ** 3) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(Axes.FORWARD, (received[UDPRxValues.FORWARD] ** 3) * 100 * self.powerTarget * self.maxPowerTarget)
+            self.controlSystem.setAxisInput(Axes.STRAFE, (received[UDPRxValues.STRAFE] ** 3) * 100 * self.powerTarget * self.maxPowerTarget)
+            self.controlSystem.setAxisInput(Axes.DEPTH, (received[UDPRxValues.VERTICAL] ** 3) * 100 * self.powerTarget * self.maxPowerTarget)
+            self.controlSystem.setAxisInput(Axes.YAW, (received[UDPRxValues.ROTATION]) * 100 * self.powerTarget * YAW_CAP)
 
             rollInc = received[UDPRxValues.ROLL_INC]
             pitchInc = received[UDPRxValues.PITCH_INC]
@@ -248,7 +250,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         thrust = self.controlSystem.getThrustersControls()
 
-        #print(*["%.2f" % elem for elem in thrust], sep ='; ')
+        print(*["%.2f" % elem for elem in thrust], sep ='; ')
 
         if self.MASTER:
             if self.controlType == ControlType.STM_CTRL:
