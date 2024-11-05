@@ -201,7 +201,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.controlSystem.setAxisInput(Axes.YAW, (received[UDPRxValues.ROTATION] ** 3) * 100 * self.powerTarget)
 
             rollInc = received[UDPRxValues.ROLL_INC]
-            pitchInc = received[UDPRxValues.ROLL_INC]
+            pitchInc = received[UDPRxValues.PITCH_INC]
 
             if rollInc:
                 rollSP = self.controlSystem.getPIDSetpoint(Axes.ROLL) + rollInc * self.incrementScale
