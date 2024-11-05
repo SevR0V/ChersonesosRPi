@@ -98,8 +98,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         self.maxPowerTarget = 0.7
         
-        self.newRxPacket = False
-        self.newTxPacket = False
+        self.newRxPacket = True
+        self.newTxPacket = True
         
         self.depthDelay = 10
         self.counter = 0
