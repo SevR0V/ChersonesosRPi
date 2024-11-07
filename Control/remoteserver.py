@@ -16,6 +16,7 @@ from servo import Servo
 from utils import constrain, map_value
 from async_hiwonder_reader import AsyndHiwonderReader
 import time
+import copy
 
 to_rad = math.pi / 180
 
@@ -239,9 +240,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.controlSystem.setStabilizations([0,0,0,0,0,0])
             
             if self.resetIMU:
-                self.IMUErrors = [self.controlSystem.getAxisValue(Axes.ROLL),
-                                  self.controlSystem.getAxisValue(Axes.PITCH),
-                                  self.controlSystem.getAxisValue(Axes.YAW)]
+                self.IMUErrors = copy.copy(self.eulers)
                        
         self.controlSystem.setdt(self.timer.getInterval())
 
@@ -252,7 +251,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
     def dataCalculationTransfer(self):
         self.time2 = time.time()
-        print("%.4f"%(self.time2-self.time1))
+        #print("%.4f"%(self.time2-self.time1))
         self.time1 = self.time2
 
         self.counter += 1
@@ -315,8 +314,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
             if curLights is not None:
                 self.curLights = curLights
 
-
         self.controlSystem.setAxisValue(Axes.DEPTH, self.depth)
+        # print(*["%.2f" % elem for elem in self.eulers], sep ='; ')
+        # print(*["%.2f" % elem for elem in self.IMUErrors], sep ='; ')
         self.controlSystem.setAxisValue(Axes.ROLL, self.eulers[0] - self.IMUErrors[0])
         self.controlSystem.setAxisValue(Axes.PITCH, self.eulers[1] - self.IMUErrors[1])
         self.controlSystem.setAxisValue(Axes.YAW, self.eulers[2] - self.IMUErrors[2])

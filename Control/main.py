@@ -67,7 +67,7 @@ if imuType == IMUType.NAVX:
     navx = Navx()
 
 if imuType == IMUType.HIWONDER:
-    hiwonderReader = AsyndHiwonderReader(1/250, loop,'/dev/ttyUSB0', 9600)
+    hiwonderReader = AsyndHiwonderReader(1/200, loop,'/dev/ttyUSB0', 57600)
 
 if controlType == ControlType.STM_CTRL:
     #init SPI parameters
