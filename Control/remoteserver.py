@@ -14,7 +14,8 @@ from navx import Navx
 from ligths import Lights
 from servo import Servo
 from utils import constrain, map_value
-from hiwonderIMU import HiwonderIMU
+from async_hiwonder_reader import AsyndHiwonderReader
+import time
 
 to_rad = math.pi / 180
 
@@ -66,20 +67,22 @@ class UDPRxValues(IntEnum):
 
 class RemoteUdpDataServer(asyncio.Protocol):
     def __init__(self, contolSystem: ControlSystem, timer: AsyncTimer, imuType: IMUType, controlType: ControlType, bridge: SPI_Xfer_Container = None, navx: Navx = None, thrusters: Thrusters = None,
-                 lights: Lights = None, cameraServo: Servo = None, hiwonderIMU: HiwonderIMU = None):
+                 lights: Lights = None, cameraServo: Servo = None, hiwonderReader: AsyndHiwonderReader = None):
         self.controlType = controlType
+        self.hiwonderReader = hiwonderReader
         self.imuType = imuType
         self.timer = timer
         self.bridge = bridge        
         self.controlSystem = contolSystem
         self.navx = navx
-        self.hiwonderIMU = hiwonderIMU
         self.thrusters = thrusters
         self.lights = lights
         self.cameraServo = cameraServo
         self.remoteAddres = None
         self.timer.subscribe(self.dataCalculationTransfer)
         self.timer.start()
+        if self.hiwonderReader is not None:
+            self.hiwonderReader.start()
         self.powerTarget = 0
         self.cameraRotate = 0
         self.cameraAngle = 65
@@ -107,6 +110,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
         
         self.depthDelay = 10
         self.counter = 0
+
+        self.time1 = time.time()
+        self.time2 = time.time()
 
         if self.imuType == IMUType.NAVX:
             navx.subscribe(self.navx_data_received)
@@ -242,8 +248,13 @@ class RemoteUdpDataServer(asyncio.Protocol):
     def navx_data_received(self, sender, data):
         roll, pitch, yaw, heading = data
         self.eulers = [roll, -pitch, yaw]
+        
 
     def dataCalculationTransfer(self):
+        self.time2 = time.time()
+        print("%.4f"%(self.time2-self.time1))
+        self.time1 = self.time2
+
         self.counter += 1
         if self.counter >= self.depthDelay:
             self.counter = 0
@@ -253,7 +264,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         thrust = self.controlSystem.getThrustersControls()
 
-        print(*["%.2f" % elem for elem in thrust], sep ='; ')
+        #print(*["%.2f" % elem for elem in thrust], sep ='; ')
 
         if self.MASTER:
             if self.controlType == ControlType.STM_CTRL:
@@ -273,12 +284,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.cameraServo.rotate(self.cameraAngle)
 
         if self.imuType == IMUType.HIWONDER:
-            imuOtput = self.hiwonderIMU.readIMU()
-            if imuOtput:
-                angles = [0]*3
-                for i in range(3):
-                    angles[i] = imuOtput[i+6]
-                self.eulers = angles
+            self.eulers = self.hiwonderReader.getIMUAngles()
         if self.controlType == ControlType.STM_CTRL:
             try:
                 # Transfer data over SPI

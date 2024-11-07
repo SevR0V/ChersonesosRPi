@@ -12,13 +12,13 @@ import serial_asyncio
 from thruster import Thrusters
 from ligths import Lights
 from servo import Servo
-from hiwonderIMU import HiwonderIMU
+from async_hiwonder_reader import AsyndHiwonderReader
 
 #select IMU
 # IMUType.NAVX
 # IMUType.POLOLU
 # IMUType.HIWONDER
-imuType = IMUType.NAVX
+imuType = IMUType.HIWONDER
 
 #select contol type
 # ControlType.DIRECT_CTRL
@@ -40,6 +40,7 @@ thrusters = None
 cameraServo = None
 udp_server = None
 hiwonderIMU = None
+hiwonderTimer = None
 
 #init thrusters parameters
 thrustersOrder = [ThrustersNames.H_FRONT_LEFT, 
@@ -66,7 +67,7 @@ if imuType == IMUType.NAVX:
     navx = Navx()
 
 if imuType == IMUType.HIWONDER:
-    hiwonderIMU = HiwonderIMU('/dev/ttyUSB0', 9600)
+    hiwonderReader = AsyndHiwonderReader(1/100, loop,'/dev/ttyUSB0', 9600)
 
 if controlType == ControlType.STM_CTRL:
     #init SPI parameters
@@ -105,7 +106,7 @@ if controlType == ControlType.DIRECT_CTRL:
         udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, lights, cameraServo)
     if imuType == IMUType.HIWONDER:
         udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, 
-                                         lights, cameraServo, hiwonderIMU)
+                                         lights, cameraServo, hiwonderReader)
 
 #create tasks
 serial_task = None
@@ -129,3 +130,5 @@ except KeyboardInterrupt:
     loop.close()
     pi.stop()
     print("Shutdown")
+except Exception as ex:
+    print(ex)
