@@ -10,7 +10,7 @@ Angle = [0.0]*3
 
 class HiwonderIMU:
     def __init__(self, port, baudRate):
-        self.serialConnection = serial.Serial(port, baudRate, timeout=0.1)
+        self.serialConnection = serial.Serial(port, baudRate, timeout=0)
         self.ACCData = [0.0]*8
         self.GYROData = [0.0]*8
         self.AngleData = [0.0]*8
