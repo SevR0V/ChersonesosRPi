@@ -12,10 +12,12 @@ import serial_asyncio
 from thruster import Thrusters
 from ligths import Lights
 from servo import Servo
+from hiwonderIMU import HiwonderIMU
 
 #select IMU
 # IMUType.NAVX
 # IMUType.POLOLU
+# IMUType.HIWONDER
 imuType = IMUType.NAVX
 
 #select contol type
@@ -23,7 +25,9 @@ imuType = IMUType.NAVX
 # ControlType.STM_CTRL
 controlType = ControlType.DIRECT_CTRL
 
-if controlType == ControlType.DIRECT_CTRL:
+if controlType == ControlType.DIRECT_CTRL and imuType == IMUType.POLOLU:
+    print("Wrong IMU Type")
+    exit()
     imuType = IMUType.NAVX
 
 pi = pigpio.pi()
@@ -35,6 +39,7 @@ lights = None
 thrusters = None
 cameraServo = None
 udp_server = None
+hiwonderIMU = None
 
 #init thrusters parameters
 thrustersOrder = [ThrustersNames.H_FRONT_LEFT, 
@@ -59,6 +64,9 @@ timer = AsyncTimer(timerInterval, loop)
 if imuType == IMUType.NAVX:
     #init NavX
     navx = Navx()
+
+if imuType == IMUType.HIWONDER:
+    hiwonderIMU = HiwonderIMU('/dev/ttyUSB0', 9600)
 
 if controlType == ControlType.STM_CTRL:
     #init SPI parameters
@@ -93,9 +101,11 @@ if controlType == ControlType.DIRECT_CTRL:
     lights = Lights(pi, [19, 26])
 
     #init main server
-    udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, lights, cameraServo)
-
-
+    if imuType == IMUType.NAVX:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, lights, cameraServo)
+    if imuType == IMUType.HIWONDER:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, 
+                                         lights, cameraServo, hiwonderIMU)
 
 #create tasks
 serial_task = None

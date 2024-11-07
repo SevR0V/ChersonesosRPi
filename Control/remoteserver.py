@@ -14,6 +14,7 @@ from navx import Navx
 from ligths import Lights
 from servo import Servo
 from utils import constrain, map_value
+from hiwonderIMU import HiwonderIMU
 
 to_rad = math.pi / 180
 
@@ -32,6 +33,7 @@ YAW_CAP = 0.3
 class IMUType(IntEnum):
     POLOLU = 0
     NAVX = 1
+    HIWONDER = 2
 
 class ControlType(IntEnum):
     DIRECT_CTRL = 0
@@ -64,13 +66,14 @@ class UDPRxValues(IntEnum):
 
 class RemoteUdpDataServer(asyncio.Protocol):
     def __init__(self, contolSystem: ControlSystem, timer: AsyncTimer, imuType: IMUType, controlType: ControlType, bridge: SPI_Xfer_Container = None, navx: Navx = None, thrusters: Thrusters = None,
-                 lights: Lights = None, cameraServo: Servo = None):
+                 lights: Lights = None, cameraServo: Servo = None, hiwonderIMU: HiwonderIMU = None):
         self.controlType = controlType
         self.imuType = imuType
         self.timer = timer
         self.bridge = bridge        
         self.controlSystem = contolSystem
         self.navx = navx
+        self.hiwonderIMU = hiwonderIMU
         self.thrusters = thrusters
         self.lights = lights
         self.cameraServo = cameraServo
@@ -83,6 +86,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.lightState = 0
         self.eulers = [0.0, 0.0, 0.0]
         self.accelerations = [0.0, 0.0, 0.0]
+        self.gyro = [0.0, 0.0, 0.0]
         self.IMURaw = [0.0, 0.0, 0.0]
         self.eulerMag = [0.0, 0.0, 0.0]
         self.voltage = 0
@@ -240,7 +244,6 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.eulers = [roll, -pitch, yaw]
 
     def dataCalculationTransfer(self):
-        
         self.counter += 1
         if self.counter >= self.depthDelay:
             self.counter = 0
@@ -269,6 +272,13 @@ class RemoteUdpDataServer(asyncio.Protocol):
                     self.lights.off()
                 self.cameraServo.rotate(self.cameraAngle)
 
+        if self.imuType == IMUType.HIWONDER:
+            imuOtput = self.hiwonderIMU.readIMU()
+            if imuOtput:
+                angles = [0]*3
+                for i in range(3):
+                    angles[i] = imuOtput[i+6]
+                self.eulers = angles
         if self.controlType == ControlType.STM_CTRL:
             try:
                 # Transfer data over SPI
