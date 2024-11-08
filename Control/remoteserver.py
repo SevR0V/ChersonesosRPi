@@ -263,15 +263,13 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         thrust = self.controlSystem.getThrustersControls()
 
-        #print(*["%.2f" % elem for elem in thrust], sep ='; ')
-
+        #print(*["%.2f" % elem for elem in thrust], sep ='; ')            
         if self.MASTER:
             if self.controlType == ControlType.STM_CTRL:
                 self.bridge.set_cam_angle_value(self.cameraAngle)
                 lightsValues = [50*self.lightState, 50*self.lightState]
                 self.bridge.set_lights_values(lightsValues)            
                 self.bridge.set_mots_values(thrust)
-                self.bridge.set_cam_angle_value(self.cameraAngle)
 
             if self.controlType == ControlType.DIRECT_CTRL:
                 self.thrusters.set_thrust_all(thrust)
@@ -280,7 +278,17 @@ class RemoteUdpDataServer(asyncio.Protocol):
                     self.lights.on()
                 else:
                     self.lights.off()
+        else:
+            thrust = [0.0]*6
+            if self.controlType == ControlType.DIRECT_CTRL:
+                self.thrusters.set_thrust_all(thrust)
+                self.lights.off()
                 self.cameraServo.rotate(self.cameraAngle)
+            if self.controlType == ControlType.STM_CTRL:
+                self.bridge.set_cam_angle_value(self.cameraAngle)
+                lightsValues = [0, 0]
+                self.bridge.set_lights_values(lightsValues)            
+                self.bridge.set_mots_values(thrust)                            
 
         if self.imuType == IMUType.HIWONDER:
             self.eulers = self.hiwonderReader.getIMUAngles()

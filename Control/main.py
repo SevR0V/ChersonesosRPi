@@ -18,7 +18,7 @@ from async_hiwonder_reader import AsyndHiwonderReader
 # IMUType.NAVX
 # IMUType.POLOLU
 # IMUType.HIWONDER
-imuType = IMUType.HIWONDER
+imuType = IMUType.NAVX
 
 #select contol type
 # ControlType.DIRECT_CTRL
