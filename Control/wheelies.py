@@ -35,20 +35,24 @@ def_mission_data = {"missionId" : None,
                 "realtime_stream?": None,
                 }
 
-class wheelies_mqtt_xfer_client:
+class wheelies_mqtt_client:
     def __init__(self, droneId, host, port, username, password):
         self.__droneId = droneId
         self.__host = host
         self.__port = port
         self.__username = username
         self.__password = password
+
         self.__drone_data = def_drone_data
         self.__mission_data = def_mission_data
-        self.__drone_topic = str(self.__droneId) + "_data"
+
+        self.__drone_data_topic = str(self.__droneId) + "_data"
         self.__mission_topic = str(self.__droneId) + "_get_mission"
+
         self.__mqtt_client = mqtt.Client()
         self.__mqtt_client.on_connect = self.__on_connect
         self.__mqtt_client.on_message = self.__on_message
+
         self.__data_acc_flag = False
     
     def connect(self):        
@@ -71,14 +75,14 @@ class wheelies_mqtt_xfer_client:
             print("Wrong message JSON format")
             print(ex)
         if data is None:
-            return            
+            return
         self.__mission_data = data
         print("Received message")
         print(self.__mission_data)
         self.__data_acc_flag = True
     
     def __publish(self):
-        self.__mqtt_client.publish(self.__drone_topic, json.dumps(self.__drone_data), qos= 0)
+        self.__mqtt_client.publish(self.__drone_data_topic, json.dumps(self.__drone_data), qos= 0)
 
     def is_connected(self):
         return self.__mqtt_client.is_connected()
@@ -86,7 +90,7 @@ class wheelies_mqtt_xfer_client:
     def is_new_data(self):
         return self.__data_acc_flag
 
-    def send_drone_data(self, heading = None, depth = None, bat_level = None, 
+    def send_drone_data(self, heading = None, depth = None, speed = None, bat_level = None, 
                         status = "Waiting", mission_id = None, direction = None,
                         video_status = None, mode_control = None, aim = None,
                         lon = None, lat = None, f_coord_lon = None, f_coord_lat = None):
@@ -94,7 +98,7 @@ class wheelies_mqtt_xfer_client:
         self.__drone_data["Coordinates"]["lat"] = lat
         self.__drone_data["Battery Level"] = bat_level
         self.__drone_data["Heading"] = heading
-        self.__drone_data["Speed"] = None
+        self.__drone_data["Speed"] = speed
         self.__drone_data["Status"] = status
         self.__drone_data["mission_id"] = mission_id
         self.__drone_data["flight_direction"] = direction
