@@ -1,31 +1,31 @@
 import json
 import paho.mqtt.client as mqtt
 
-drone_data = {"Coordinates" : {
-        "lat" : None,
-        "lon" : None
-    },
-    "Battery Level": None,
-    "Heading" : None,
-    "Speed" : None,
-    "Status" : "Waiting",
-    "mission_id" : None,
-    "flight_direction": None,
-    "video": None,
-    "modecontrol": None,
-    "aim": None,
-    "f_coordinates": {
-        "lat": None,
-        "lon": None,
-    }
-}
+def_drone_data = {"Coordinates" : {
+                    "lat" : None,
+                    "lon" : None
+              },
+              "Battery Level": None,
+              "Heading" : None,
+              "Speed" : None,
+              "Status" : "Waiting",
+              "mission_id" : None,
+              "flight_direction": None,
+              "video": None,
+              "modecontrol": None,
+              "aim": None,
+              "f_coordinates": {
+                    "lat": None,
+                    "lon": None,
+              }
+              }
 
-control_data = {"missionId" : None,
+def_mission_data = {"missionId" : None,
                 "missionType" : None,
                 "points": [{
-                "lat": None,
-                "long": None,
-                "height": None,
+                    "lat": None,
+                    "long": None,
+                    "height": None,
                 }],
                 "speed": None,
                 "rec_video?": None,
@@ -42,10 +42,10 @@ class wheelies_mqtt_xfer_client:
         self.__port = port
         self.__username = username
         self.__password = password
-        self.__drone_data = drone_data
-        self.__control_data = control_data
+        self.__drone_data = def_drone_data
+        self.__mission_data = def_mission_data
         self.__drone_topic = str(self.__droneId) + "_data"
-        self.__control_topic = str(self.__droneId) + "_get_mission"
+        self.__mission_topic = str(self.__droneId) + "_get_mission"
         self.__mqtt_client = mqtt.Client()
         self.__mqtt_client.on_connect = self.__on_connect
         self.__mqtt_client.on_message = self.__on_message
@@ -60,21 +60,22 @@ class wheelies_mqtt_xfer_client:
 
     def __on_connect(self, client, userdata, flags, rc):
         print("Connected to MQTT broker with result code: " + str(rc))
-        self.__mqtt_client.subscribe(self.__control_topic)
+        self.__mqtt_client.subscribe(self.__mission_topic)
     
     def __on_message(self, client, userdata, msg):        
         data = None
-        if msg.payload.decode():
-            try:
-                data = json.loads(msg.payload.decode())
-            except Exception as ex:
-                print(ex)
-            if data is None:
-                return            
-            self.__control_data = data
-            print("Received message")
-            print(self.__control_data)
-            self.__data_acc_flag = True
+        received_msg = msg.payload.decode()
+        try:
+            data = json.loads(received_msg)
+        except Exception as ex:
+            print("Wrong message JSON format")
+            print(ex)
+        if data is None:
+            return            
+        self.__mission_data = data
+        print("Received message")
+        print(self.__mission_data)
+        self.__data_acc_flag = True
     
     def __publish(self):
         self.__mqtt_client.publish(self.__drone_topic, json.dumps(self.__drone_data), qos= 0)
