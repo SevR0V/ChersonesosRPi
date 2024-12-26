@@ -1,23 +1,23 @@
 import json
 import paho.mqtt.client as mqtt
 
-def_drone_data = {"Coordinates" : {
-                    "lat" : None,
-                    "lon" : None
+def_drone_data = {"position" : {
+                    "oint":{
+                        "lat" : None,
+                        "lon" : None,
+                        "height": None,
+                        },
+                    "direction": None,
+                    "speed": None
               },
-              "Battery Level": None,
-              "Heading" : None,
-              "Speed" : None,
-              "Status" : "Waiting",
+              "battery Level": None,
+              "heading" : None,
+              "status" : "Waiting",
               "mission_id" : None,
-              "flight_direction": None,
-              "video": None,
-              "modecontrol": None,
+              "command_id" : None,
+              "use_ai_video": None,
               "aim": None,
-              "f_coordinates": {
-                    "lat": None,
-                    "lon": None,
-              }
+              "use_hand_mode": None
               }
 
 def_mission_data = {"missionId" : None,
@@ -92,19 +92,19 @@ class wheelies_mqtt_client:
 
     def send_drone_data(self, heading = None, depth = None, speed = None, bat_level = None, 
                         status = "Waiting", mission_id = None, direction = None,
-                        video_status = None, mode_control = None, aim = None,
-                        lon = None, lat = None, f_coord_lon = None, f_coord_lat = None):
-        self.__drone_data["Coordinates"]["lon"] = lon
-        self.__drone_data["Coordinates"]["lat"] = lat
-        self.__drone_data["Battery Level"] = bat_level
-        self.__drone_data["Heading"] = heading
-        self.__drone_data["Speed"] = speed
-        self.__drone_data["Status"] = status
+                        use_ai_video = None, use_hand_mode = None, aim = None,
+                        lon = None, lat = None, command_id = None):
+        self.__drone_data["position"]["point"]["lon"] = lon
+        self.__drone_data["position"]["point"]["lat"] = lat
+        self.__drone_data["position"]["point"]["height"] = -depth
+        self.__drone_data["position"]["direction"] = direction
+        self.__drone_data["position"]["speed"] = speed
+        self.__drone_data["battery Level"] = bat_level
+        self.__drone_data["heading"] = heading       
+        self.__drone_data["status"] = status
         self.__drone_data["mission_id"] = mission_id
-        self.__drone_data["flight_direction"] = direction
-        self.__drone_data["video"] = video_status
-        self.__drone_data["modecontrol"] = mode_control
+        self.__drone_data["command_id"] = command_id
+        self.__drone_data["use_ai_video"] = use_ai_video        
         self.__drone_data["aim"] = aim
-        self.__drone_data["f_coordinates"]["lat"] = f_coord_lat
-        self.__drone_data["f_coordinates"]["lon"] = f_coord_lon
+        self.__drone_data["use_hand_mode"] = use_hand_mode
         self.__publish()
