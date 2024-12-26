@@ -18,12 +18,12 @@ from async_hiwonder_reader import AsyndHiwonderReader
 # IMUType.NAVX
 # IMUType.POLOLU
 # IMUType.HIWONDER
-imuType = IMUType.NAVX
+imuType = IMUType.POLOLU
 
 #select contol type
 # ControlType.DIRECT_CTRL
 # ControlType.STM_CTRL
-controlType = ControlType.DIRECT_CTRL
+controlType = ControlType.STM_CTRL
 
 if controlType == ControlType.DIRECT_CTRL and imuType == IMUType.POLOLU:
     print("Wrong IMU Type")
