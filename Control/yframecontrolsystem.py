@@ -83,7 +83,6 @@ class ControlSystem:
         self.__PIDValues[Axes.DEPTH] = constrain(depthPID, -100, 100)
 
     def __calculateHorizontalThrust(self):
-
         HFL = self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] + (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
         HFR = - self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] - (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
         HRR = - self.__axesInputs[Axes.STRAFE] + (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
