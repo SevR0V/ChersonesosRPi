@@ -7,6 +7,7 @@ wheelies_client.connect()
 wheelies_client.start_loop()
 time.sleep(2)
 if not wheelies_client.is_connected():
+    print("Connection to broker failed")
     exit()
 while(1):
     wheelies_client.send_drone_data()

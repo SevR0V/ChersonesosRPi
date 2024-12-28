@@ -2,7 +2,7 @@ import json
 import paho.mqtt.client as mqtt
 
 def_drone_data = {"position" : {
-                    "oint":{
+                    "point":{
                         "lat" : None,
                         "lon" : None,
                         "height": None,
@@ -10,9 +10,9 @@ def_drone_data = {"position" : {
                     "direction": None,
                     "speed": None
               },
-              "battery Level": None,
+              "battery level": None,
               "heading" : None,
-              "status" : "Waiting",
+              "status" : "waiting",
               "mission_id" : None,
               "command_id" : None,
               "use_ai_video": None,
@@ -20,6 +20,7 @@ def_drone_data = {"position" : {
               "use_hand_mode": None
               }
 
+### переписать под новый формат ###
 def_mission_data = {"missionId" : None,
                 "missionType" : None,
                 "points": [{
@@ -34,6 +35,7 @@ def_mission_data = {"missionId" : None,
                 "targetObjects?": None,
                 "realtime_stream?": None,
                 }
+###-----------------------------###
 
 class wheelies_mqtt_client:
     def __init__(self, droneId, host, port, username, password):
@@ -72,7 +74,7 @@ class wheelies_mqtt_client:
         try:
             data = json.loads(received_msg)
         except Exception as ex:
-            print("Wrong message JSON format")
+            print("JSON parsing error")
             print(ex)
         if data is None:
             return
@@ -91,15 +93,15 @@ class wheelies_mqtt_client:
         return self.__data_acc_flag
 
     def send_drone_data(self, heading = None, depth = None, speed = None, bat_level = None, 
-                        status = "Waiting", mission_id = None, direction = None,
+                        status = "waiting", mission_id = None, direction = None,
                         use_ai_video = None, use_hand_mode = None, aim = None,
                         lon = None, lat = None, command_id = None):
         self.__drone_data["position"]["point"]["lon"] = lon
         self.__drone_data["position"]["point"]["lat"] = lat
-        self.__drone_data["position"]["point"]["height"] = -depth
+        self.__drone_data["position"]["point"]["height"] = depth
         self.__drone_data["position"]["direction"] = direction
         self.__drone_data["position"]["speed"] = speed
-        self.__drone_data["battery Level"] = bat_level
+        self.__drone_data["battery level"] = bat_level
         self.__drone_data["heading"] = heading       
         self.__drone_data["status"] = status
         self.__drone_data["mission_id"] = mission_id
