@@ -2,7 +2,7 @@ import asyncio
 from typing import Callable, List
 from hiwonderIMU import HiwonderIMU
 
-class AsyndHiwonderReader:
+class AsyncHiwonderReader:
     def __init__(self, interval: float, loop: asyncio.AbstractEventLoop, port, baudRate):
 
         self.hiwonderIMU = HiwonderIMU(port, baudRate)

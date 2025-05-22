@@ -12,20 +12,22 @@ import serial_asyncio
 from thruster import Thrusters
 from ligths import Lights
 from servo import Servo
-from async_hiwonder_reader import AsyndHiwonderReader
+from async_hiwonder_reader import AsyncHiwonderReader
+from robocorpMPU import RobocorpMPU
 
 #select IMU
 # IMUType.NAVX
-# IMUType.POLOLU
+# IMUType.STM_IMU
 # IMUType.HIWONDER
-imuType = IMUType.NAVX
+imuType = IMUType.STM_IMU
 
 #select contol type
 # ControlType.DIRECT_CTRL
-# ControlType.STM_CTRL
-controlType = ControlType.STM_CTRL
+# ControlType.STM_SPI_CTRL
+controlType = ControlType.STM_UART_CTRL
 
-if controlType == ControlType.DIRECT_CTRL and imuType == IMUType.POLOLU:
+
+if controlType == ControlType.DIRECT_CTRL and imuType == IMUType.STM_IMU:
     print("Wrong IMU Type")
     exit()
     imuType = IMUType.NAVX
@@ -41,6 +43,7 @@ cameraServo = None
 udp_server = None
 hiwonderIMU = None
 hiwonderTimer = None
+robocorp_MPU = None
 
 #init thrusters parameters
 thrustersOrder = [ThrustersNames.H_REAR, 
@@ -67,9 +70,9 @@ if imuType == IMUType.NAVX:
     navx = Navx()
 
 if imuType == IMUType.HIWONDER:
-    hiwonderReader = AsyndHiwonderReader(1/100, loop,'/dev/ttyUSB0', 38400)
+    hiwonderReader = AsyncHiwonderReader(1/100, loop,'/dev/ttyUSB0', 38400)
 
-if controlType == ControlType.STM_CTRL:
+if controlType == ControlType.STM_SPI_CTRL:
     #init SPI parameters
     SPIChannel = 0
     SPISpeed = 500000
@@ -77,7 +80,22 @@ if controlType == ControlType.STM_CTRL:
     bridge = SPI_Xfer_Container(pi, SPIChannel, SPISpeed, SPIFlags)
 
     #init main server
-    udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx)
+    if imuType == IMUType.NAVX:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx)
+    if imuType == IMUType.HIWONDER:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, hiwonderReader=hiwonderReader)
+    if imuType == IMUType.STM_IMU:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge)
+
+if controlType == ControlType.STM_UART_CTRL:
+    robocorp_MPU = RobocorpMPU()
+    #init main server
+    if imuType == IMUType.NAVX:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, navx=navx, robocorpMPU= robocorp_MPU)
+    if imuType == IMUType.HIWONDER:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, hiwonderReader=hiwonderReader, robocorpMPU= robocorp_MPU)
+    if imuType == IMUType.STM_IMU:
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, robocorpMPU= robocorp_MPU)
 
 if controlType == ControlType.DIRECT_CTRL:
     #init thrusters
@@ -103,23 +121,32 @@ if controlType == ControlType.DIRECT_CTRL:
 
     #init main server
     if imuType == IMUType.NAVX:
-        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, lights, cameraServo)
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, navx=navx, thrusters=thrusters, lights=lights, cameraServo=cameraServo)
     if imuType == IMUType.HIWONDER:
-        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge, navx, thrusters, 
-                                         lights, cameraServo, hiwonderReader)
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, thrusters=thrusters, 
+                                         lights=lights, cameraServo=cameraServo, hiwonderReader=hiwonderReader)
 
 #create tasks
-serial_task = None
+NavX_serial_task = None
 task = None
+robocorp_MPU_task = None
 udp_server_task = loop.create_datagram_endpoint(lambda: udp_server, local_addr=('0.0.0.0', 1337))
 if imuType == IMUType.NAVX:
-    serial_task = serial_asyncio.create_serial_connection(loop, lambda: navx, '/dev/ttyACM0', baudrate=115200)
+    NavX_serial_task = serial_asyncio.create_serial_connection(loop, lambda: navx, '/dev/ttyACM0', baudrate=115200)
+if controlType == ControlType.STM_UART_CTRL:
+    robocorp_MPU_task = serial_asyncio.create_serial_connection(loop, lambda: robocorp_MPU, '/dev/uart0', baudrate=115200)
 
 #register tasks
-if imuType == IMUType.NAVX:
-    task = asyncio.gather(udp_server_task, serial_task, return_exceptions=True)
+if controlType == ControlType.STM_UART_CTRL:
+    if imuType == IMUType.NAVX:
+        task = asyncio.gather(udp_server_task, robocorp_MPU_task, NavX_serial_task, return_exceptions=True)
+    else:
+        task = asyncio.gather(udp_server_task, robocorp_MPU_task, return_exceptions=True)
 else:
-    task = asyncio.gather(udp_server_task, return_exceptions=True)
+    if imuType == IMUType.NAVX:
+        task = asyncio.gather(udp_server_task, NavX_serial_task, return_exceptions=True)
+    else:
+        task = asyncio.gather(udp_server_task, return_exceptions=True)
 
 #start main loop
 loop.run_until_complete(task)

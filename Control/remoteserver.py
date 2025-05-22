@@ -14,7 +14,9 @@ from navx import Navx
 from ligths import Lights
 from servo import Servo
 from utils import constrain, map_value, ExpMovingAverageFilter
-from async_hiwonder_reader import AsyndHiwonderReader
+from async_hiwonder_reader import AsyncHiwonderReader
+from UARTParser import UART_Xfer_Container
+from robocorpMPU import RobocorpMPU
 import time
 import copy
 
@@ -33,13 +35,14 @@ UDP_FLAGS_UPDATE_PIDx = np.uint64(1 << 8)
 YAW_CAP = 0.5
 
 class IMUType(IntEnum):
-    POLOLU = 0
+    STM_IMU = 0
     NAVX = 1
     HIWONDER = 2
 
 class ControlType(IntEnum):
     DIRECT_CTRL = 0
-    STM_CTRL = 1
+    STM_SPI_CTRL = 1
+    STM_UART_CTRL = 2
 
 class UDPRxValues(IntEnum):
     FLAGS = 0
@@ -76,15 +79,20 @@ class WorkStatus(IntEnum):
 
 class RemoteUdpDataServer(asyncio.Protocol):
     def __init__(self, contolSystem: ControlSystem, timer: AsyncTimer, imuType: IMUType, controlType: ControlType, bridge: SPI_Xfer_Container = None, navx: Navx = None, thrusters: Thrusters = None,
-                 lights: Lights = None, cameraServo: Servo = None, hiwonderReader: AsyndHiwonderReader = None):
-        self.workStatus = WorkStatus.WAITING 
+                 lights: Lights = None, cameraServo: Servo = None, hiwonderReader: AsyncHiwonderReader = None, robocorpMPU: RobocorpMPU = None):
+        self.workStatus = WorkStatus.WAITING
+        self.robocorpMPU = robocorpMPU
         self.offlineTimer = 0
         self.evacDepth = 0
         self.controlType = controlType
         self.hiwonderReader = hiwonderReader
         self.imuType = imuType
         self.timer = timer
-        self.bridge = bridge        
+        self.bridge = None
+        if self.controlType == ControlType.STM_SPI_CTRL:
+            self.bridge = bridge
+        if self.controlType == ControlType.STM_UART_CTRL:
+            self.bridge == UART_Xfer_Container()
         self.controlSystem = contolSystem
         self.navx = navx
         self.thrusters = thrusters
@@ -130,7 +138,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         self.time1 = time.time()
         self.time2 = time.time()
-
+        
+        if self.controlType == ControlType.STM_UART_CTRL:
+            self.robocorpMPU.subscribe
         if self.imuType == IMUType.NAVX:
             navx.subscribe(self.navx_data_received)
         
@@ -265,6 +275,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
     def navx_data_received(self, sender, data):
         roll, pitch, yaw, heading = data
         self.eulers = [roll, pitch, yaw]
+    
+    def robocorpMPU_data_received(self, sender, data):
+        self.uartParser(data)
         
     def statusUpdate(self):
         match self.workStatus:
@@ -336,7 +349,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         #print(*["%.2f" % elem for elem in thrust], sep ='; ')            
         if self.MASTER:
-            if self.controlType == ControlType.STM_CTRL:
+            if self.controlType == ControlType.STM_SPI_CTRL:
                 self.bridge.set_cam_angle_value(self.cameraAngle)
                 lightsValues = [50*self.lightState, 50*self.lightState]
                 self.bridge.set_lights_values(lightsValues)            
@@ -348,7 +361,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 if self.lightState:
                     self.lights.on()
                 else:
-                    self.lights.off()
+                    self.lights.off()                
         else:
             thrust = [0.0]*6
             if self.controlType == ControlType.DIRECT_CTRL:
@@ -358,22 +371,26 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 else:
                     self.lights.off()
                 self.cameraServo.rotate(self.cameraAngle)
-            if self.controlType == ControlType.STM_CTRL:
+
+            if self.controlType == ControlType.STM_SPI_CTRL:
                 self.bridge.set_cam_angle_value(map_value(round(self.cameraAngle), -90, 90, -100, 100))
                 lightsValues = [50*self.lightState, 50*self.lightState]
                 self.bridge.set_lights_values(lightsValues)            
-                self.bridge.set_mots_values(thrust)                            
+                self.bridge.set_mots_values(thrust)
 
         if self.imuType == IMUType.HIWONDER:
             self.eulers = self.hiwonderReader.getIMUAngles()
-        if self.controlType == ControlType.STM_CTRL:
+        if self.controlType == ControlType.STM_SPI_CTRL or self.controlType == ControlType.STM_UART_CTRL:
             try:
                 # Transfer data over SPI
-                self.bridge.transfer()
+                if self.controlType == ControlType.STM_SPI_CTRL:
+                    self.bridge.transfer()
+                if self.controlType == ControlType.STM_UART_CTRL:
+                    self.robocorpMPU.send_data(self.bridge.parse_buffer())
             except:
-                print("SPI TRANSFER FAILURE")
+                print("TRANSFER FAILURE")
                 
-            if self.imuType == IMUType.POLOLU:   
+            if self.imuType == IMUType.STM_IMU:   
                 eulers = self.bridge.get_IMU_angles()
                 if eulers is not None:
                     # self.eulers = eulers
