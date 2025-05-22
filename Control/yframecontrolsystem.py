@@ -32,7 +32,7 @@ class ControlSystem:
         self.__trustersXValues = [-100, 100]
         self.__thrusterIncrement = 0.5
         # (forward,strafe,depth,roll,pitch,yaw)
-        self.__axesInputs   = [0, 0, 0, 0, 0, 0]
+        self.axesInputs   = [0, 0, 0, 0, 0, 0]
         self.__axesValues   = [0, 0, 0, 0, 0, 0]        
         self.__stabs        = [0, 0, 0, 0, 0, 0]
         self.__PIDValues    = [0, 0, 0, 0, 0, 0]
@@ -66,36 +66,39 @@ class ControlSystem:
         self.__smoothRPMBuildUp()
 
     def __updatePID(self):
-        if not ((np.abs(self.__axesInputs[Axes.DEPTH])<1) and self.__stabs[Axes.DEPTH]):
+        if not ((np.abs(self.axesInputs[Axes.DEPTH])<1) and self.__stabs[Axes.DEPTH]):
             self.setPIDSetpoint(Axes.DEPTH, self.__axesValues[Axes.DEPTH])
         
-        if np.abs(self.__axesInputs[Axes.YAW]) >= 1 or not self.__stabs[Axes.YAW] : 
+        if np.abs(self.axesInputs[Axes.YAW]) >= 1 or not self.__stabs[Axes.YAW] : 
             self.setPIDSetpoint(Axes.YAW, self.__axesValues[Axes.YAW])
 
-        yawPID = self.__PIDs[Axes.YAW].update(self.__axesValues[Axes.YAW], self.__dt) if (np.abs(self.__axesInputs[Axes.YAW]) < 1) and self.__stabs[Axes.YAW] else 0 
+        yawPID = self.__PIDs[Axes.YAW].update(self.__axesValues[Axes.YAW], self.__dt) if (np.abs(self.axesInputs[Axes.YAW]) < 1) and self.__stabs[Axes.YAW] else 0 
         rollPID = self.__PIDs[Axes.ROLL].update(self.__axesValues[Axes.ROLL], self.__dt) if self.__stabs[Axes.ROLL] else 0
         pitchPID = self.__PIDs[Axes.PITCH].update(self.__axesValues[Axes.PITCH], self.__dt) if self.__stabs[Axes.PITCH] else 0
         depthPID = -self.__PIDs[Axes.DEPTH].update(self.__axesValues[Axes.DEPTH], self.__dt) if self.__stabs[Axes.DEPTH] else 0
 
-        self.__PIDValues[Axes.YAW] = -constrain(yawPID, -100, 100) * 0.5
+        self.__PIDValues[Axes.YAW] = -constrain(yawPID, -100, 100) * 0.3
         self.__PIDValues[Axes.ROLL] = constrain(rollPID, -100, 100) * 0.5
         self.__PIDValues[Axes.PITCH] = constrain(pitchPID, -100, 100) * 0.5
-        self.__PIDValues[Axes.DEPTH] = constrain(depthPID, -100, 100)
+        self.__PIDValues[Axes.DEPTH] = constrain(depthPID, -100, 100) * 1
 
     def __calculateHorizontalThrust(self):
 
-        HFL = self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] + (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
-        HFR = - self.__axesInputs[Axes.STRAFE] / 2 + self.__axesInputs[Axes.FORWARD] - (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
-        HRR = - self.__axesInputs[Axes.STRAFE] + (self.__axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HFL = self.axesInputs[Axes.STRAFE] / 2 + self.axesInputs[Axes.FORWARD] + (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HFR = - self.axesInputs[Axes.STRAFE] / 2 + self.axesInputs[Axes.FORWARD] - (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        if self.axesInputs[Axes.STRAFE] >= 0:
+            HRR = - self.axesInputs[Axes.STRAFE] * 0.8 + (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        else:
+            HRR = - self.axesInputs[Axes.STRAFE] * 0.6 + (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
 
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_LEFT)] = constrain(HFL, -100, 100)
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_RIGHT)] = constrain(HFR, -100, 100)
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_REAR)] = constrain(HRR, -100, 100)
         
     def __calculateVerticalThrust(self):
-        VFL = self.__PIDValues[Axes.ROLL] + self.__PIDValues[Axes.DEPTH] + self.__PIDValues[Axes.PITCH] + self.__axesInputs[Axes.DEPTH]
-        VFR = -self.__PIDValues[Axes.ROLL] + self.__PIDValues[Axes.DEPTH] + self.__PIDValues[Axes.PITCH] + self.__axesInputs[Axes.DEPTH]
-        VRR = -self.__PIDValues[Axes.PITCH] + self.__PIDValues[Axes.DEPTH] + self.__axesInputs[Axes.DEPTH]
+        VFL = self.__PIDValues[Axes.ROLL] + self.__PIDValues[Axes.DEPTH] + self.__PIDValues[Axes.PITCH] + self.axesInputs[Axes.DEPTH]
+        VFR = -self.__PIDValues[Axes.ROLL] + self.__PIDValues[Axes.DEPTH] + self.__PIDValues[Axes.PITCH] + self.axesInputs[Axes.DEPTH]
+        VRR = -self.__PIDValues[Axes.PITCH] + self.__PIDValues[Axes.DEPTH] + self.axesInputs[Axes.DEPTH]
 
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.V_FRONT_LEFT)] = constrain(VFL, -100, 100)
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.V_FRONT_RIGHT)] = constrain(VFR, -100, 100)
@@ -132,10 +135,10 @@ class ControlSystem:
             self.__PIDs[controlAxis].setSetpoint(setpoint)   
 
     def setAxesInputs(self, inputs):
-        self.__axesInputs = inputs
+        self.axesInputs = inputs
 
     def setAxisInput(self, controlAxis: Axes, input):
-        self.__axesInputs[controlAxis] = input
+        self.axesInputs[controlAxis] = input
 
     def setAxesValues(self, inputs):
         self.__axesValues = inputs

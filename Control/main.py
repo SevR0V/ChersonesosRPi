@@ -18,7 +18,7 @@ from async_hiwonder_reader import AsyndHiwonderReader
 # IMUType.NAVX
 # IMUType.POLOLU
 # IMUType.HIWONDER
-imuType = IMUType.POLOLU
+imuType = IMUType.NAVX
 
 #select contol type
 # ControlType.DIRECT_CTRL
@@ -43,13 +43,13 @@ hiwonderIMU = None
 hiwonderTimer = None
 
 #init thrusters parameters
-thrustersOrder = [ThrustersNames.H_FRONT_LEFT, 
-                  ThrustersNames.H_FRONT_RIGHT,
-                  ThrustersNames.H_REAR, 
+thrustersOrder = [ThrustersNames.H_REAR, 
                   ThrustersNames.V_FRONT_LEFT,
+                  ThrustersNames.V_REAR, 
                   ThrustersNames.V_FRONT_RIGHT,
-                  ThrustersNames.V_REAR]
-thrustersDirCorr = [1, -1, 1, 1, -1, 1]
+                  ThrustersNames.H_FRONT_RIGHT,
+                  ThrustersNames.H_FRONT_LEFT]
+thrustersDirCorr = [1, 1, 1, -1, -1, 1]
 trustersXValues = [-100, 100]
 
 #init control system
@@ -67,7 +67,7 @@ if imuType == IMUType.NAVX:
     navx = Navx()
 
 if imuType == IMUType.HIWONDER:
-    hiwonderReader = AsyndHiwonderReader(1/200, loop,'/dev/ttyUSB0', 57600)
+    hiwonderReader = AsyndHiwonderReader(1/100, loop,'/dev/ttyUSB0', 38400)
 
 if controlType == ControlType.STM_CTRL:
     #init SPI parameters

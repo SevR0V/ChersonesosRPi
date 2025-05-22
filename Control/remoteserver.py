@@ -13,7 +13,7 @@ from thruster import Thrusters
 from navx import Navx
 from ligths import Lights
 from servo import Servo
-from utils import constrain, map_value
+from utils import constrain, map_value, ExpMovingAverageFilter
 from async_hiwonder_reader import AsyndHiwonderReader
 import time
 import copy
@@ -30,7 +30,7 @@ UDP_FLAGS_RESET_POSITIONx = np.uint64(1 << 6)
 UDP_FLAGS_RESET_IMUx = np.uint64(1 << 7)
 UDP_FLAGS_UPDATE_PIDx = np.uint64(1 << 8)
 
-YAW_CAP = 0.3
+YAW_CAP = 0.5
 
 class IMUType(IntEnum):
     POLOLU = 0
@@ -66,9 +66,20 @@ class UDPRxValues(IntEnum):
     DEPTH_KI = 21
     DEPTH_KD = 22        
 
+class WorkStatus(IntEnum):
+    WAITING = -1
+    WORKING = 0
+    NO_CONNECTION = 1
+    TROUBLESHOOTING_DELAY = 2
+    EVACUATION = 3
+    EVACUATION_ABORT = 4
+
 class RemoteUdpDataServer(asyncio.Protocol):
     def __init__(self, contolSystem: ControlSystem, timer: AsyncTimer, imuType: IMUType, controlType: ControlType, bridge: SPI_Xfer_Container = None, navx: Navx = None, thrusters: Thrusters = None,
                  lights: Lights = None, cameraServo: Servo = None, hiwonderReader: AsyndHiwonderReader = None):
+        self.workStatus = WorkStatus.WAITING 
+        self.offlineTimer = 0
+        self.evacDepth = 0
         self.controlType = controlType
         self.hiwonderReader = hiwonderReader
         self.imuType = imuType
@@ -86,7 +97,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
             self.hiwonderReader.start()
         self.powerTarget = 0
         self.cameraRotate = 0
-        self.cameraAngle = 65
+        self.cameraAngle = 0
         self.lightState = 0
         self.eulers = [0.0, 0.0, 0.0]
         self.accelerations = [0.0, 0.0, 0.0]
@@ -103,8 +114,13 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.batCharge = 0
         self.resetIMU = 0
         self.ERRORFLAGS = np.uint64(0)
+        self.voltsFilter = ExpMovingAverageFilter(1)
+        self.filteredVolts = 0
+        
+        self.blinkTimer = 0
+        self.blinkState = False
 
-        self.maxPowerTarget = 0.7
+        self.maxPowerTarget = 1
         
         self.newRxPacket = True
         self.newTxPacket = True
@@ -135,14 +151,16 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
     def datagram_received(self, data, address):
         packet = data
+        self.offlineTimer = 0
         if len(packet) == 2 and packet[0] == 0xAA and packet[1] == 0xFF:
             self.remoteAddres = address
+            self.workStatus = WorkStatus.WORKING
             print(f"Client {address} connected")
             return
         
         if not self.remoteAddres:
             return
-        
+        self.workStatus = WorkStatus.WORKING
         if not self.newRxPacket:            
             #fx, fy, vertical_thrust, powertarget, rotation_velocity, manipulator_grip, manipulator_rotate, camera_rotate, reset, light_state, stabilization, RollInc, PitchInc, ResetPosition.
             received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
@@ -155,7 +173,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
             self.cameraRotate = received[7]
             self.cameraAngle += self.cameraRotate * self.incrementScale * 3
-            self.cameraAngle = constrain(self.cameraAngle, 40, 90)
+            self.cameraAngle = constrain(self.cameraAngle, 0, 180)
             self.lightState = received[9]
 
             rollStab =  1 if received[10] & 0b00000001 else 0
@@ -224,8 +242,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.controlSystem.setPIDSetpoint(Axes.PITCH, pitchSP)
                 
             self.cameraRotate = received[UDPRxValues.CAM_ROTATE]            
-            self.cameraAngle += self.cameraRotate * self.incrementScale
-            
+            self.cameraAngle += self.cameraRotate * self.incrementScale * 2
+            self.cameraAngle = constrain(self.cameraAngle,-90,90)
             if updatePID:
                 self.controlSystem.setPIDConstants(Axes.ROLL, [received[UDPRxValues.ROLL_KP], received[UDPRxValues.ROLL_KI], received[UDPRxValues.ROLL_KD]])
                 self.controlSystem.setPIDConstants(Axes.PITCH, [received[UDPRxValues.PITCH_KP], received[UDPRxValues.PITCH_KI], received[UDPRxValues.PITCH_KD]])
@@ -246,13 +264,66 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
     def navx_data_received(self, sender, data):
         roll, pitch, yaw, heading = data
-        self.eulers = [roll, -pitch, yaw]
+        self.eulers = [roll, pitch, yaw]
         
+    def statusUpdate(self):
+        match self.workStatus:
+            case WorkStatus.WAITING:
+                self.MASTER = False
+            case WorkStatus.WORKING:
+                if self.offlineTimer >= 1:
+                    self.workStatus = WorkStatus.NO_CONNECTION
+            case WorkStatus.NO_CONNECTION:
+                self.offlineTimer = 0
+                self.MASTER = False
+                self.workStatus = WorkStatus.TROUBLESHOOTING_DELAY
+            case WorkStatus.TROUBLESHOOTING_DELAY:
+                if self.offlineTimer >= 5:
+                    self.MASTER = True
+                    self.workStatus = WorkStatus.EVACUATION
+                    self.controlSystem.axesInputs = [0, 0, 0, 0, 0, 0]
+                    self.controlSystem.setStabilization(Axes.ROLL, 1)
+                    self.controlSystem.setStabilization(Axes.PITCH, 1)
+                    self.controlSystem.setStabilization(Axes.DEPTH, 1)
+                    self.controlSystem.setPIDSetpoint(Axes.ROLL, 0)
+                    self.controlSystem.setPIDSetpoint(Axes.PITCH, 0)
+                    self.controlSystem.setPIDSetpoint(Axes.DEPTH, 0.5)                    
+                    self.evacDepth = self.controlSystem.getAxisValue(Axes.DEPTH)
+                    self.offlineTimer = 0
+            case WorkStatus.EVACUATION:
+                if self.depth <= 0.5:
+                    self.offlineTimer = 0
+                    self.MASTER = False
+                    return
+                else:
+                    self.MASTER = True
+                if self.offlineTimer >= 10:
+                    if abs(self.evacDepth - self.controlSystem.getAxisValue(Axes.DEPTH)) >= 0.3:
+                        self.MASTER = False
+                        self.workStatus = WorkStatus.EVACUATION_ABORT
+                        self.offlineTimer = 0
+            case WorkStatus.EVACUATION_ABORT:
+                self.MASTER = False
 
     def dataCalculationTransfer(self):
-        self.time2 = time.time()
-        #print("%.4f"%(self.time2-self.time1))
-        self.time1 = self.time2
+        self.offlineTimer += self.timer.getInterval()
+        self.statusUpdate()
+        print(str(self.workStatus) + str(self.MASTER) + str(self.offlineTimer))
+        if self.workStatus > 0:
+            self.blinkTimer += self.timer.getInterval()
+            if not(self.blinkTimer % 3):
+                self.blinkState = not self.blinkState
+            if self.blinkState:
+                self.lightState = 1
+            else:
+                self.lightState = 0
+        else:
+            self.blinkState = False
+            self.blinkTimer = 0
+        
+        # self.time2 = time.time()
+        # #print("%.4f"%(self.time2-self.time1))
+        # self.time1 = self.time2
 
         self.counter += 1
         if self.counter >= self.depthDelay:
@@ -282,11 +353,14 @@ class RemoteUdpDataServer(asyncio.Protocol):
             thrust = [0.0]*6
             if self.controlType == ControlType.DIRECT_CTRL:
                 self.thrusters.set_thrust_all(thrust)
-                self.lights.off()
+                if self.lightState:
+                    self.lights.on()
+                else:
+                    self.lights.off()
                 self.cameraServo.rotate(self.cameraAngle)
             if self.controlType == ControlType.STM_CTRL:
-                self.bridge.set_cam_angle_value(self.cameraAngle)
-                lightsValues = [0, 0]
+                self.bridge.set_cam_angle_value(map_value(round(self.cameraAngle), -90, 90, -100, 100))
+                lightsValues = [50*self.lightState, 50*self.lightState]
                 self.bridge.set_lights_values(lightsValues)            
                 self.bridge.set_mots_values(thrust)                            
 
@@ -302,7 +376,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
             if self.imuType == IMUType.POLOLU:   
                 eulers = self.bridge.get_IMU_angles()
                 if eulers is not None:
-                    self.eulers = eulers
+                    # self.eulers = eulers
+                    self.eulers = [-eulers[1],  eulers[0], eulers[2]]
                 acc = self.bridge.get_IMU_accelerometer()
                 if acc is not None:
                     self.accelerations = acc
@@ -315,6 +390,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
             voltage = self.bridge.get_voltage()
             if voltage is not None:
                 self.voltage = voltage
+                self.filteredVolts = self.voltsFilter.update(self.voltage)
             currAll = self.bridge.get_current_all()
             if currAll is not None:
                 self.curAll = currAll
@@ -328,6 +404,8 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.controlSystem.setAxisValue(Axes.ROLL, self.eulers[0] - self.IMUErrors[0])
         self.controlSystem.setAxisValue(Axes.PITCH, self.eulers[1] - self.IMUErrors[1])
         self.controlSystem.setAxisValue(Axes.YAW, self.eulers[2] - self.IMUErrors[2])
+        if self.voltage is not None:
+            self.batCharge = map_value(self.voltage, 16, 20.5, 0, 100)
         if self.remoteAddres:
             if not self.newTxPacket:
                 telemetry_data = struct.pack('=fffffff', self.controlSystem.getAxisValue(Axes.ROLL), 
@@ -347,9 +425,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
                                             self.controlSystem.getAxisValue(Axes.PITCH), 
                                             self.controlSystem.getAxisValue(Axes.YAW),
                                             self.controlSystem.getAxisValue(Axes.DEPTH),
-                                            self.voltage,
+                                            self.filteredVolts,
                                             self.batCharge,
-                                            self.curAll,
+                                            self.cameraAngle,
                                             self.controlSystem.getPIDSetpoint(Axes.ROLL), 
                                             self.controlSystem.getPIDSetpoint(Axes.PITCH))
                 
