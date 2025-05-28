@@ -16,9 +16,11 @@ from servo import Servo
 from utils import constrain, map_value, ExpMovingAverageFilter
 from async_hiwonder_reader import AsyncHiwonderReader
 from UARTParser import UART_Xfer_Container
-from robocorpMPU import RobocorpMPU
 import time
 import copy
+import serial
+import json
+from control_IMU_types import ControlType, IMUType
 
 to_rad = math.pi / 180
 
@@ -34,15 +36,7 @@ UDP_FLAGS_UPDATE_PIDx = np.uint64(1 << 8)
 
 YAW_CAP = 0.5
 
-class IMUType(IntEnum):
-    STM_IMU = 0
-    NAVX = 1
-    HIWONDER = 2
 
-class ControlType(IntEnum):
-    DIRECT_CTRL = 0
-    STM_SPI_CTRL = 1
-    STM_UART_CTRL = 2
 
 class UDPRxValues(IntEnum):
     FLAGS = 0
@@ -78,10 +72,10 @@ class WorkStatus(IntEnum):
     EVACUATION_ABORT = 4
 
 class RemoteUdpDataServer(asyncio.Protocol):
-    def __init__(self, contolSystem: ControlSystem, timer: AsyncTimer, imuType: IMUType, controlType: ControlType, bridge: SPI_Xfer_Container = None, navx: Navx = None, thrusters: Thrusters = None,
-                 lights: Lights = None, cameraServo: Servo = None, hiwonderReader: AsyncHiwonderReader = None, robocorpMPU: RobocorpMPU = None):
+    def __init__(self, contolSystem: ControlSystem, timer: AsyncTimer, imuType: IMUType, controlType: ControlType, bridge = None, navx: Navx = None, thrusters: Thrusters = None,
+                 lights: Lights = None, cameraServo: Servo = None, hiwonderReader: AsyncHiwonderReader = None):
         self.workStatus = WorkStatus.WAITING
-        self.robocorpMPU = robocorpMPU
+        # self.robocorpMPU = robocorpMPU
         self.offlineTimer = 0
         self.evacDepth = 0
         self.controlType = controlType
@@ -92,7 +86,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
         if self.controlType == ControlType.STM_SPI_CTRL:
             self.bridge = bridge
         if self.controlType == ControlType.STM_UART_CTRL:
-            self.bridge == UART_Xfer_Container()
+            self.bridge = UART_Xfer_Container()
         self.controlSystem = contolSystem
         self.navx = navx
         self.thrusters = thrusters
@@ -125,6 +119,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.voltsFilter = ExpMovingAverageFilter(1)
         self.filteredVolts = 0
         
+        self.readytoSerialTx = True
+        self.serial_retry_timer = 0
+        self.serial_safe_timeout_counter = 0
+        
         self.blinkTimer = 0
         self.blinkState = False
 
@@ -140,7 +138,11 @@ class RemoteUdpDataServer(asyncio.Protocol):
         self.time2 = time.time()
         
         if self.controlType == ControlType.STM_UART_CTRL:
-            self.robocorpMPU.subscribe
+                self.robocorpMCU_serial = serial.Serial(
+                port='/dev/serial0',  
+                baudrate=921600,
+                timeout=self.timer.getInterval())
+            
         if self.imuType == IMUType.NAVX:
             navx.subscribe(self.navx_data_received)
         
@@ -156,12 +158,11 @@ class RemoteUdpDataServer(asyncio.Protocol):
         time.sleep(2)
         print('Ready to drown!')
 
-    def connection_made(self, transport):
+    def connection_made(self, transport):        
         self.transport = transport
 
     def datagram_received(self, data, address):
         packet = data
-        self.offlineTimer = 0
         if len(packet) == 2 and packet[0] == 0xAA and packet[1] == 0xFF:
             self.remoteAddres = address
             self.workStatus = WorkStatus.WORKING
@@ -170,7 +171,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
         
         if not self.remoteAddres:
             return
+        
+        self.offlineTimer = 0
         self.workStatus = WorkStatus.WORKING
+        
         if not self.newRxPacket:            
             #fx, fy, vertical_thrust, powertarget, rotation_velocity, manipulator_grip, manipulator_rotate, camera_rotate, reset, light_state, stabilization, RollInc, PitchInc, ResetPosition.
             received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
@@ -259,6 +263,30 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 self.controlSystem.setPIDConstants(Axes.PITCH, [received[UDPRxValues.PITCH_KP], received[UDPRxValues.PITCH_KI], received[UDPRxValues.PITCH_KD]])
                 self.controlSystem.setPIDConstants(Axes.YAW, [received[UDPRxValues.YAW_KP], received[UDPRxValues.YAW_KI], received[UDPRxValues.YAW_KD]])
                 self.controlSystem.setPIDConstants(Axes.DEPTH, [received[UDPRxValues.DEPTH_KP], received[UDPRxValues.DEPTH_KI], received[UDPRxValues.DEPTH_KD]])
+                pids = {
+                    "Roll":{
+                        "kP": received[UDPRxValues.ROLL_KP],
+                        "kI": received[UDPRxValues.ROLL_KI],
+                        "kD": received[UDPRxValues.ROLL_KD]
+                    },
+                    "Pitch":{
+                        "kP": received[UDPRxValues.PITCH_KP],
+                        "kI": received[UDPRxValues.PITCH_KI],
+                        "kD": received[UDPRxValues.PITCH_KD]
+                    },
+                    "Yaw":{
+                        "kP": received[UDPRxValues.YAW_KP],
+                        "kI": received[UDPRxValues.YAW_KI],
+                        "kD": received[UDPRxValues.YAW_KD]
+                    },
+                    "Depth":{
+                        "kP": received[UDPRxValues.DEPTH_KP],
+                        "kI": received[UDPRxValues.DEPTH_KI],
+                        "kD": received[UDPRxValues.DEPTH_KD]
+                    }
+                }
+                with open("PIDs.json", "w", encoding="utf-8") as f:
+                    json.dump(pids, f, ensure_ascii=False, indent=4)
             
             if resetPosition:
                 self.controlSystem.setPIDSetpoint(Axes.ROLL, 0)
@@ -272,12 +300,17 @@ class RemoteUdpDataServer(asyncio.Protocol):
                        
         self.controlSystem.setdt(self.timer.getInterval())
 
+    def set_PIDs_from_File(self, pids):
+        if pids is None:
+            return
+        self.controlSystem.setPIDConstants(Axes.ROLL, [pids["Roll"]["kP"], pids["Roll"]["kI"], pids["Roll"]["kD"]])
+        self.controlSystem.setPIDConstants(Axes.PITCH, [pids["Pitch"]["kP"], pids["Pitch"]["kI"], pids["Pitch"]["kD"]])
+        self.controlSystem.setPIDConstants(Axes.YAW, [pids["Yaw"]["kP"], pids["Yaw"]["kI"], pids["Yaw"]["kD"]])
+        self.controlSystem.setPIDConstants(Axes.DEPTH, [pids["Depth"]["kP"], pids["Depth"]["kI"], pids["Depth"]["kD"]])
+
     def navx_data_received(self, sender, data):
         roll, pitch, yaw, heading = data
         self.eulers = [roll, pitch, yaw]
-    
-    def robocorpMPU_data_received(self, sender, data):
-        self.uartParser(data)
         
     def statusUpdate(self):
         match self.workStatus:
@@ -321,7 +354,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
     def dataCalculationTransfer(self):
         self.offlineTimer += self.timer.getInterval()
         self.statusUpdate()
-        print(str(self.workStatus) + str(self.MASTER) + str(self.offlineTimer))
+        # print(str(self.workStatus) + str(self.MASTER) + str(self.offlineTimer))
         if self.workStatus > 0:
             self.blinkTimer += self.timer.getInterval()
             if not(self.blinkTimer % 3):
@@ -347,9 +380,9 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
         thrust = self.controlSystem.getThrustersControls()
 
-        #print(*["%.2f" % elem for elem in thrust], sep ='; ')            
+        # print(*["%.2f" % elem for elem in thrust], sep ='; ')        
         if self.MASTER:
-            if self.controlType == ControlType.STM_SPI_CTRL:
+            if self.controlType == ControlType.STM_SPI_CTRL or self.controlType == ControlType.STM_UART_CTRL:
                 self.bridge.set_cam_angle_value(self.cameraAngle)
                 lightsValues = [50*self.lightState, 50*self.lightState]
                 self.bridge.set_lights_values(lightsValues)            
@@ -372,7 +405,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                     self.lights.off()
                 self.cameraServo.rotate(self.cameraAngle)
 
-            if self.controlType == ControlType.STM_SPI_CTRL:
+            if self.controlType == ControlType.STM_SPI_CTRL or self.controlType == ControlType.STM_UART_CTRL:
                 self.bridge.set_cam_angle_value(map_value(round(self.cameraAngle), -90, 90, -100, 100))
                 lightsValues = [50*self.lightState, 50*self.lightState]
                 self.bridge.set_lights_values(lightsValues)            
@@ -386,34 +419,52 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 if self.controlType == ControlType.STM_SPI_CTRL:
                     self.bridge.transfer()
                 if self.controlType == ControlType.STM_UART_CTRL:
-                    self.robocorpMPU.send_data(self.bridge.parse_buffer())
-            except:
+                    tx_buff = self.bridge.get_TX_buffer()
+                    self.robocorpMCU_serial.reset_output_buffer()
+                    self.robocorpMCU_serial.write(tx_buff)
+                    # print(f"Transmitted: {bytearray(tx_buff)}")
+                    if self.robocorpMCU_serial.in_waiting == 150:
+                        rx_buffer = self.robocorpMCU_serial.read(self.robocorpMCU_serial.in_waiting)
+                        self.bridge.parse_buffer(rx_buffer)
+                        self.robocorpMCU_serial.reset_input_buffer()
+                        # print(f"Received: {bytearray(rx_buffer)}")
+                    else:
+                        buf = self.robocorpMCU_serial.read(self.robocorpMCU_serial.in_waiting)
+                        # print("No data received, buff size =" + str(self.ser.in_waiting))
+                        # print(bytearray(buf))
+                        buf_len = len(buf)
+                        if buf_len > 0 and buf[buf_len-1] == 0xCD:   
+                            # print("Buff offset")                            
+                            self.robocorpMCU_serial.reset_input_buffer()
+                    
+                if self.imuType == IMUType.STM_IMU:   
+                    eulers = self.bridge.get_IMU_angles()
+                    if eulers is not None:
+                        # self.eulers = eulers
+                        self.eulers = [-eulers[1],  eulers[0], eulers[2]]
+                    acc = self.bridge.get_IMU_accelerometer()
+                    if acc is not None:
+                        self.accelerations = acc
+                    imuRaw = self.bridge.get_IMU_raw()
+                    if imuRaw is not None:
+                        self.IMURaw = imuRaw
+                    mag = self.bridge.get_IMU_magnetometer()
+                    if mag is not None:
+                        self.eulerMag = mag
+                voltage = self.bridge.get_voltage()
+                if voltage is not None:
+                    self.voltage = voltage
+                    self.filteredVolts = self.voltsFilter.update(self.voltage)
+                currAll = self.bridge.get_current_all()
+                if currAll is not None:
+                    self.curAll = currAll
+                curLights = self.bridge.get_current_lights()
+                if curLights is not None:
+                    self.curLights = curLights
+                pass
+            except Exception as ex:
                 print("TRANSFER FAILURE")
-                
-            if self.imuType == IMUType.STM_IMU:   
-                eulers = self.bridge.get_IMU_angles()
-                if eulers is not None:
-                    # self.eulers = eulers
-                    self.eulers = [-eulers[1],  eulers[0], eulers[2]]
-                acc = self.bridge.get_IMU_accelerometer()
-                if acc is not None:
-                    self.accelerations = acc
-                imuRaw = self.bridge.get_IMU_raw()
-                if imuRaw is not None:
-                    self.IMURaw = imuRaw
-                mag = self.bridge.get_IMU_magnetometer()
-                if mag is not None:
-                    self.eulerMag = mag
-            voltage = self.bridge.get_voltage()
-            if voltage is not None:
-                self.voltage = voltage
-                self.filteredVolts = self.voltsFilter.update(self.voltage)
-            currAll = self.bridge.get_current_all()
-            if currAll is not None:
-                self.curAll = currAll
-            curLights = self.bridge.get_current_lights()
-            if curLights is not None:
-                self.curLights = curLights
+                print(ex)
 
         self.controlSystem.setAxisValue(Axes.DEPTH, self.depth)
         # print(*["%.2f" % elem for elem in self.eulers], sep ='; ')
