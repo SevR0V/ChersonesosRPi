@@ -435,7 +435,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 
                 self.transport.sendto(telemetry_data, self.remoteAddres)
             else:
-                #ERRORFLAGS, roll, pitch, yaw, depth, batVoltage, batCharge, batCurrent, rollSP, pitchSP
+                #ERRORFLAGS, roll, pitch, yaw, depth, batVoltage, batCharge, cameraAngle, rollSP, pitchSP
                 telemetry_data = struct.pack('=Qfffffffff',
                                             self.ERRORFLAGS,
                                             self.controlSystem.getAxisValue(Axes.ROLL), 
