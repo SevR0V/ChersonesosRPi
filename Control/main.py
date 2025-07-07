@@ -1,8 +1,8 @@
 import asyncio
 import pigpio
 from remoteserver import RemoteUdpDataServer
-from remoteserver import IMUType
-from remoteserver import ControlType
+from control_IMU_types import IMUType
+from control_IMU_types import ControlType
 from SPIContainer import SPI_Xfer_Container
 from asynctimer import AsyncTimer
 from yframecontrolsystem import ControlSystem
@@ -13,7 +13,7 @@ from thruster import Thrusters
 from ligths import Lights
 from servo import Servo
 from async_hiwonder_reader import AsyncHiwonderReader
-from robocorpMPU import RobocorpMPU
+import os, json
 
 #select IMU
 # IMUType.NAVX
@@ -25,7 +25,6 @@ imuType = IMUType.STM_IMU
 # ControlType.DIRECT_CTRL
 # ControlType.STM_SPI_CTRL
 controlType = ControlType.STM_UART_CTRL
-
 
 if controlType == ControlType.DIRECT_CTRL and imuType == IMUType.STM_IMU:
     print("Wrong IMU Type")
@@ -44,6 +43,7 @@ udp_server = None
 hiwonderIMU = None
 hiwonderTimer = None
 robocorp_MPU = None
+pids = None
 
 #init thrusters parameters
 thrustersOrder = [ThrustersNames.H_REAR, 
@@ -88,14 +88,12 @@ if controlType == ControlType.STM_SPI_CTRL:
         udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, bridge)
 
 if controlType == ControlType.STM_UART_CTRL:
-    robocorp_MPU = RobocorpMPU()
-    #init main server
     if imuType == IMUType.NAVX:
-        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, navx=navx, robocorpMPU= robocorp_MPU)
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, navx=navx)
     if imuType == IMUType.HIWONDER:
-        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, hiwonderReader=hiwonderReader, robocorpMPU= robocorp_MPU)
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, hiwonderReader=hiwonderReader)
     if imuType == IMUType.STM_IMU:
-        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, robocorpMPU= robocorp_MPU)
+        udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType)
 
 if controlType == ControlType.DIRECT_CTRL:
     #init thrusters
@@ -126,27 +124,36 @@ if controlType == ControlType.DIRECT_CTRL:
         udp_server = RemoteUdpDataServer(controlSystem, timer, imuType, controlType, thrusters=thrusters, 
                                          lights=lights, cameraServo=cameraServo, hiwonderReader=hiwonderReader)
 
-#create tasks
+#create async tasks
 NavX_serial_task = None
 task = None
 robocorp_MPU_task = None
 udp_server_task = loop.create_datagram_endpoint(lambda: udp_server, local_addr=('0.0.0.0', 1337))
 if imuType == IMUType.NAVX:
     NavX_serial_task = serial_asyncio.create_serial_connection(loop, lambda: navx, '/dev/ttyACM0', baudrate=115200)
-if controlType == ControlType.STM_UART_CTRL:
-    robocorp_MPU_task = serial_asyncio.create_serial_connection(loop, lambda: robocorp_MPU, '/dev/uart0', baudrate=115200)
 
-#register tasks
-if controlType == ControlType.STM_UART_CTRL:
-    if imuType == IMUType.NAVX:
-        task = asyncio.gather(udp_server_task, robocorp_MPU_task, NavX_serial_task, return_exceptions=True)
-    else:
-        task = asyncio.gather(udp_server_task, robocorp_MPU_task, return_exceptions=True)
-else:
+#register async tasks
+if controlType == ControlType.STM_UART_CTRL or controlType == ControlType.STM_SPI_CTRL:
     if imuType == IMUType.NAVX:
         task = asyncio.gather(udp_server_task, NavX_serial_task, return_exceptions=True)
     else:
         task = asyncio.gather(udp_server_task, return_exceptions=True)
+
+# load PIDs values from fle
+pids_file_path = "PIDs.json"
+
+if os.path.isfile(pids_file_path):
+    with open(pids_file_path, "r", encoding="utf-8") as f:
+        pids = json.load(f)
+    print("PIDs values loaded")
+else:
+    pids = {
+        "Roll":  {"kP": 5, "kI": 0, "kD": 0},
+        "Pitch": {"kP": 5, "kI": 0, "kD": 0},
+        "Yaw":   {"kP": 5, "kI": 0, "kD": 0},
+        "Depth": {"kP": 200, "kI": 0, "kD": 0},
+    }
+udp_server.set_PIDs_from_File(pids)
 
 #start main loop
 loop.run_until_complete(task)

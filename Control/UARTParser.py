@@ -17,7 +17,7 @@ class RxBufferOffsets(IntEnum):
     CUR_LIGHT1 = 61
     CUR_LIGHT2 = 65
     VOLTS24 = 69
-    MAGIC_END = 199
+    MAGIC_END = 149
 
 class TxBufferOffsets(IntEnum):
     MAGIC_START = 0
@@ -25,7 +25,7 @@ class TxBufferOffsets(IntEnum):
     MOTORS = 9
     CAM_ANGLE = 33
     LIGHT = 37 
-    MAGIC_END = 199
+    MAGIC_END = 149
 
 
 UART_RX_EULERx_FLAG =        np.uint64(1 << 0)
@@ -54,7 +54,7 @@ def countPacketfSize(packetf):
 def formPacket(defPacket):
     packetSize = countPacketfSize(defPacket)    
     packetSize += 2
-    hollowSize = 200 - packetSize
+    hollowSize = 150 - packetSize
     resPacket = defPacket
     for i in range(hollowSize):
         resPacket += "B"
@@ -63,7 +63,7 @@ def formPacket(defPacket):
 
 
 class UART_Xfer_Container:
-    BUFFER_SIZE = 200
+    BUFFER_SIZE = 150
     MAGIC_START = 0xAB
     MAGIC_END = 0xCD
 
@@ -132,7 +132,8 @@ class UART_Xfer_Container:
         #self.tx_refresh_flags = np.uint64(0)
 
     def get_TX_buffer(self):
-        return self._fill_tx_buffer()
+        self._fill_tx_buffer()
+        return self.tx_buffer
     
     def parse_buffer(self, rx_buffer):
         self.rx_buffer = rx_buffer
