@@ -19,12 +19,12 @@ import os, json
 # IMUType.NAVX
 # IMUType.STM_IMU
 # IMUType.HIWONDER
-imuType = IMUType.STM_IMU
+imuType = IMUType.NAVX
 
 #select contol type
 # ControlType.DIRECT_CTRL
 # ControlType.STM_SPI_CTRL
-controlType = ControlType.STM_UART_CTRL
+controlType = ControlType.STM_SPI_CTRL
 
 if controlType == ControlType.DIRECT_CTRL and imuType == IMUType.STM_IMU:
     print("Wrong IMU Type")
@@ -138,6 +138,8 @@ if controlType == ControlType.STM_UART_CTRL or controlType == ControlType.STM_SP
         task = asyncio.gather(udp_server_task, NavX_serial_task, return_exceptions=True)
     else:
         task = asyncio.gather(udp_server_task, return_exceptions=True)
+else:
+    task = asyncio.gather(udp_server_task, NavX_serial_task, return_exceptions=True)
 
 # load PIDs values from fle
 pids_file_path = "PIDs.json"

@@ -180,10 +180,10 @@ class RemoteUdpDataServer(asyncio.Protocol):
             received = struct.unpack_from("=ffffffffBBBffBffffffffffffB", packet)
             self.powerTarget = received[3] * self.maxPowerTarget
             
-            self.controlSystem.setAxisInput(Axes.STRAFE, (received[0] ** 3) * 100 * self.powerTarget)
-            self.controlSystem.setAxisInput(Axes.FORWARD, (received[1] ** 3) * 100 * self.powerTarget)
-            self.controlSystem.setAxisInput(Axes.DEPTH, (received[2] ** 3) * 100 * self.powerTarget)
-            self.controlSystem.setAxisInput(Axes.YAW, (received[4] ** 3) * 100 * self.powerTarget) 
+            self.controlSystem.setAxisInput(Axes.STRAFE, (received[0]) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(Axes.FORWARD, (received[1]) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(Axes.DEPTH, (received[2]) * 100 * self.powerTarget)
+            self.controlSystem.setAxisInput(Axes.YAW, (received[4]) * 100 * self.powerTarget) 
 
             self.cameraRotate = received[7]
             self.cameraAngle += self.cameraRotate * self.incrementScale * 3
@@ -390,7 +390,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
 
             if self.controlType == ControlType.DIRECT_CTRL:
                 self.thrusters.set_thrust_all(thrust)
-
+                print(thrust)
                 if self.lightState:
                     self.lights.on()
                 else:
@@ -422,7 +422,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                     tx_buff = self.bridge.get_TX_buffer()
                     self.robocorpMCU_serial.reset_output_buffer()
                     self.robocorpMCU_serial.write(tx_buff)
-                    # print(f"Transmitted: {bytearray(tx_buff)}")
+                    print(f"Transmitted: {bytearray(tx_buff)}")
                     if self.robocorpMCU_serial.in_waiting == 150:
                         rx_buffer = self.robocorpMCU_serial.read(self.robocorpMCU_serial.in_waiting)
                         self.bridge.parse_buffer(rx_buffer)
@@ -486,7 +486,7 @@ class RemoteUdpDataServer(asyncio.Protocol):
                 
                 self.transport.sendto(telemetry_data, self.remoteAddres)
             else:
-                #ERRORFLAGS, roll, pitch, yaw, depth, batVoltage, batCharge, cameraAngle, rollSP, pitchSP
+                #ERRORFLAGS, roll, pitch, yaw, depth, batVoltage, batCharge, batCurrent, rollSP, pitchSP
                 telemetry_data = struct.pack('=Qfffffffff',
                                             self.ERRORFLAGS,
                                             self.controlSystem.getAxisValue(Axes.ROLL), 

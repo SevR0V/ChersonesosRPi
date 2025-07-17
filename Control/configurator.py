@@ -7,6 +7,8 @@ from UARTParser import UART_Xfer_Container
 from SPIContainer import SPI_Xfer_Container
 from thruster import Thrusters
 from yframecontrolsystem import ControlSystem
+import yframecontrolsystem
+# import pigpio
 
 def read_int_enum(prompt: str, enum_cls: IntEnum) -> IntEnum:
     valid_values = [e.value for e in enum_cls]
@@ -53,10 +55,31 @@ try:
                 break
     print(f"Selected IMU type: {imuType._name_}")
     
-    if not ask_yes_no("Do you want to manage thrusters aligment and direction? (y/n):"):
+    if not ask_yes_no("Do you want to manage thrusters pins, aligment and direction? [y/n] "):
         exit()
-    
-    
+    if controlType == ControlType.DIRECT_CTRL:
+        thrstr_count = len(yframecontrolsystem.ThrustersNames)
+        pins = []
+        en_pin = None
+        while(True):
+            print("Input pin number for each thruster:")
+            for thrstr in yframecontrolsystem.ThrustersNames:
+                pins.append(int(input(f"Thruster {thrstr.value}:")))
+            if ask_yes_no(f"Thrusters pinsa: {pins}, correct? [y/n] "):
+                break
+        while(True):
+            if not ask_yes_no("Input enable pin for thrusters? Needed if you use separate switch on thrusters [y/n]"):
+                break
+            en_pin = int(input("Input pin number for thrusters switch:"))
+            if ask_yes_no(f"Switch enable pin is {en_pin},  correct? [y/n]"):
+                break
+        print("Proceeding to aligment setup. Thrusters will rotate one by one, you should select which thruster it is.")
+        while(True):
+            if ask_yes_no("ARE YOU READY? [y/n]"):
+                break
+        # pi = pigpio.pi()
+        thrusters = Thrusters(pi, pins, [en_pin])
+        
 except Exception as ex:
     print(ex)
 except KeyboardInterrupt:
