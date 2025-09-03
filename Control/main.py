@@ -5,8 +5,8 @@ from control_IMU_types import IMUType
 from control_IMU_types import ControlType
 from SPIContainer import SPI_Xfer_Container
 from asynctimer import AsyncTimer
-from yframecontrolsystem import ControlSystem
-from yframecontrolsystem import ThrustersNames
+from xyframecontrolsystem import ControlSystem
+from xyframecontrolsystem import ThrustersNames
 from navx import Navx
 import serial_asyncio
 from thruster import Thrusters
@@ -46,13 +46,14 @@ robocorp_MPU = None
 pids = None
 
 #init thrusters parameters
-thrustersOrder = [ThrustersNames.H_REAR, 
+thrustersOrder = [ThrustersNames.H_REAR_LEFT,
                   ThrustersNames.V_FRONT_LEFT,
                   ThrustersNames.V_REAR, 
                   ThrustersNames.V_FRONT_RIGHT,
                   ThrustersNames.H_FRONT_RIGHT,
-                  ThrustersNames.H_FRONT_LEFT]
-thrustersDirCorr = [1, 1, 1, -1, -1, 1]
+                  ThrustersNames.H_FRONT_LEFT,
+                  ThrustersNames.H_REAR_RIGHT ]
+thrustersDirCorr = [1, 1, 1, -1, -1, 1, 0]
 trustersXValues = [-100, 100]
 
 #init control system
@@ -61,6 +62,7 @@ controlSystem.setThrustersCalibrationValues(thrustersDirCorr, thrustersOrder, tr
 
 #init timer parameters
 timerInterval = 1/300 #300 Hz timer interval
+controlSystem.setdt(timerInterval)
 
 #init timer
 timer = AsyncTimer(timerInterval, loop)
