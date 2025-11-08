@@ -86,10 +86,10 @@ class ControlSystem:
 
     def __calculateHorizontalThrust(self):
 
-        HFL = self.axesInputs[Axes.STRAFE] / 2 + self.axesInputs[Axes.FORWARD] + (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
-        HFR = - self.axesInputs[Axes.STRAFE] / 2 + self.axesInputs[Axes.FORWARD] - (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
-        HRL = - self.axesInputs[Axes.STRAFE] / 2 + self.axesInputs[Axes.FORWARD] - (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
-        HRR = self.axesInputs[Axes.STRAFE] / 2 + self.axesInputs[Axes.FORWARD] + (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HFL = self.axesInputs[Axes.STRAFE] + self.axesInputs[Axes.FORWARD] + (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HFR = - self.axesInputs[Axes.STRAFE] + self.axesInputs[Axes.FORWARD] - (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HRL = - self.axesInputs[Axes.STRAFE] + self.axesInputs[Axes.FORWARD] - (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
+        HRR = self.axesInputs[Axes.STRAFE] + self.axesInputs[Axes.FORWARD] + (self.axesInputs[Axes.YAW] + self.__PIDValues[Axes.YAW])
 
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_LEFT)] = constrain(HFL, -100, 100)
         self.__thrustersOutputsSetpoints[self.__thrustersOrder.index(ThrustersNames.H_FRONT_RIGHT)] = constrain(HFR, -100, 100)
